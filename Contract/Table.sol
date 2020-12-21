@@ -1,90 +1,67 @@
-pragma solidity ^0.4.24;
 
 contract TableFactory {
-    function openTable(string) public constant returns (Table); // 打开表
-
-    function createTable(
-        string,
-        string,
-        string
-    ) public returns (int256); // 创建表
+    function openTable(string memory) public view returns (Table) {} //open table
+    function createTable(string memory, string memory, string memory) public returns (int256) {} //create table
 }
 
-// 查询条件
+//select condition
 contract Condition {
-    //等于
-    function EQ(string, int256) public;
+    function EQ(string memory, int256) public view{}
+    function EQ(string memory, string memory) public view{}
 
-    function EQ(string, string) public;
+    function NE(string memory, int256) public view{}
+    function NE(string memory, string memory) public view{}
 
-    //不等于
-    function NE(string, int256) public;
+    function GT(string memory, int256) public view{}
+    function GE(string memory, int256) public view{}
 
-    function NE(string, string) public;
+    function LT(string memory, int256) public view{}
+    function LE(string memory, int256) public view{}
 
-    //大于
-    function GT(string, int256) public;
-
-    //大于或等于
-    function GE(string, int256) public;
-
-    //小于
-    function LT(string, int256) public;
-
-    //小于或等于
-    function LE(string, int256) public;
-
-    //限制返回记录条数
-    function limit(int256) public;
-
-    function limit(int256, int256) public;
+    function limit(int256) public view{}
+    function limit(int256, int256) public view{}
 }
 
-// 单条数据记录
+//one record
 contract Entry {
-    function getInt(string) public constant returns (int256);
+    function getInt(string memory) public view returns (int256) {}
+    function getUInt(string memory) public view returns (uint256) {}
+    function getAddress(string memory) public view returns (address) {}
+    function getBytes64(string memory) public view returns (bytes1[64] memory) {}
+    function getBytes32(string memory) public view returns (bytes32) {}
+    function getString(string memory) public view returns (string memory) {}
 
-    function getAddress(string) public constant returns (address);
-
-    function getBytes64(string) public constant returns (bytes1[64]);
-
-    function getBytes32(string) public constant returns (bytes32);
-
-    function getString(string) public constant returns (string);
-
-    function set(string, int256) public;
-
-    function set(string, string) public;
-
-    function set(string, address) public;
+    function set(string memory, int256) public {}
+    function set(string memory, uint256) public {}
+    function set(string memory, string memory) public {}
+    function set(string memory, address) public {}
 }
 
-// 数据记录集
+//record sets
 contract Entries {
-    function get(int256) public constant returns (Entry);
-
-    function size() public constant returns (int256);
+    function get(int256) public view returns (Entry) {}
+    function size() public view returns (int256) {}
 }
 
-// Table主类
+//Table main contract
 contract Table {
-    // 查询接口
-    function select(string, Condition) public constant returns (Entries);
+    function select(string memory, Condition) public view returns (Entries) {}
+    function insert(string memory, Entry) public returns (int256) {}
+    function update(string memory, Entry, Condition) public returns (int256) {}
+    function remove(string memory, Condition) public returns (int256) {}
 
-    // 插入接口
-    function insert(string, Entry) public returns (int256);
+    function newEntry() public view returns (Entry) {}
+    function newCondition() public view returns (Condition) {}
+}
 
-    // 更新接口
-    function update(
-        string,
-        Entry,
-        Condition
-    ) public returns (int256);
+contract KVTableFactory {
+    function openTable(string memory) public view returns (KVTable) {}
+    function createTable(string memory, string memory, string memory) public returns (int256) {}
+}
 
-    // 删除接口
-    function remove(string, Condition) public returns (int256);
-
-    function newEntry() public constant returns (Entry);
-
-    function newCondition() public constant returns (Condition);
+//KVTable per permiary key has only one Entry
+contract KVTable {
+    function get(string memory) public view returns (bool, Entry) {}
+    function set(string memory, Entry) public returns (int256) {}
+    function newEntry() public view returns (Entry) {}
 }
