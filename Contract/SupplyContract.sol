@@ -25,13 +25,6 @@ contract Supply0 {
         mapping(address => uint256) outCreditPerBank;
     }
 
-    struct Bank {
-        address addr;
-        string name;
-        uint256 inCredit;
-        uint256 outCredit;
-    }
-
     struct Certifier {
         address addr;
         string name;
@@ -41,141 +34,133 @@ contract Supply0 {
         address addr;
         string name;
         uint256 cType;
-        uint256 inCredit; // 获得的尚未返还的信用凭证总量
-        uint256 outCredit; // 签发的尚未收回的信用凭证总量
+        uint256 creditAmount;
         uint256 cashAmount;
     }
 
     struct Transaction {
-        string id;
-        address sellerAddr;
-        address buyerAddr;
+        address payeeAddr; // seller
+        address payerAddr; // buyer
+        uint256 id;
         uint256 amount;
         uint256 createTime;
         uint256 deadline;
         uint256 tMode;
-        string oriReceiptId;
+        uint256 oriReceiptId;
         uint256 requestStatus;
-        // string info;
+        string info;
+        uint256 isFinance;
     }
 
     struct Receipt {
-        string id;
-        address debtorAddr;
-        address debteeAddr;
-        uint256 curAmount;
-        uint256 oriAmount;
-        uint256 createTime;
-        uint256 deadline;
-        string bankSignature;
-        string coreCompanySignature;
-        // string info;
-    }
-
-    struct RelatedTransactionReceipt {
-        uint256 transactionId;
-        uint256 receiptId;
-    }
-
-    // struct Fraction {
-    //     int256 numerator;
-    //     int256 denominator;
-    // }
-
-    // enum LoadStatus {notSettled, settled}
-
-    struct Finance {
-        string id;
-        string oriReceiptId;
-        address debtorAddr;
-        address debteeAddr;
+        address payeeAddr; // payeeAddr
+        address payerAddr; // payerAddr
+        uint256 id;
         uint256 paidAmount;
         uint256 oriAmount;
-        uint256 interestAmount; // from createTime to lastPaidTime
         uint256 createTime;
         uint256 deadline;
-        // uint256 lastPaidTime;
-        // Fraction annualInterestRate;
-        // uint256 annualInterestRate; // x / 10000
-        uint256 status;
+        uint256 receiptStatus;
+        string bankSignature;
+        string coreCompanySignature;
+        string info;
+        uint256 isFinance;
     }
 
     Administrator admin;
-    Bank bank;
     Certifier certifier;
     Company company;
     Transaction transaction;
     Receipt receipt;
-    Finance finance;
-    string BankTable;
     string CertifierTable;
     string CompanyTable;
     string TransactionTable;
     string ReceiptTable;
-    string RelatedTable;
-    string FinanceTable;
+
+    uint256 addrCount;
+    mapping(uint256 => address) addrs;
+    mapping(address => bool) isCertifier;
+    mapping(address => bool) isNormalCompany;
+    mapping(address => bool) isCoreCompany;
+    mapping(address => bool) isBank;
 
     /** Constants */
-    uint256 CompanyType_normal = 0;
-    uint256 CompanyType_core = 1;
+    uint256 cType_normal = 0; // company
+    uint256 cType_core = 1; // company
+    uint256 cType_bank = 2;
+
     uint256 RequestStatus_sent = 0;
     uint256 RequestStatus_accepted = 1;
     uint256 RequestStatus_refused = 2;
+
     uint256 TransactionMode_new = 0;
     uint256 TransactionMode_transfer = 1;
-    uint256 FinanceStatus_requestSent = 0;
-    uint256 FinanceStatus_refused = 1;
-    uint256 FinanceStatus_accepted = 2;
-    uint256 FinanceStatus_settled = 3;
 
-    event BankRegistration(address addr, string name);
-    event CertifierRegistration(address addr, string name);
-    event CompanyRegistration(address addr, string name);
-    event CoreCompanyRegistration(address addr, string name);
-    event NewTransactionRequest(
-        string transactionId,
-        address sellerAddr,
-        address buyerAddr,
-        uint256 amount
+    uint256 ReceiptStatus_paying = 0;
+    uint256 ReceiptStatus_settled = 1;
+
+    event NewRegistration(address addr, string name, string rType);
+    event UpdateCompany(
+        address addr,
+        string name,
+        string field,
+        uint256 value,
+        string cType
     );
-    event NewTransactionRespond(
-        string transactionId,
-        address sellerAddr,
-        address buyerAddr,
+    event UpdateCompany2(
+        address addr,
+        string name,
+        string field_1,
+        uint256 value_1,
+        string field_2,
+        uint256 value_2,
+        string cType
+    );
+    event NewRequest(
+        address payeeAddr, // 收款人
+        string payeeName,
+        address payerAddr, // 付款人
+        string payerName,
         uint256 amount,
-        uint256 respond
+        string rType
+    );
+    event NewRespond(
+        address payeeAddr, // 收款人
+        string payeeName,
+        address payerAddr, // 付款人
+        string payerName,
+        uint256 amount,
+        uint256 respond,
+        string rType
+    );
+    event NewTransaction(
+        address payeeAddr, // 收款人
+        string payeeName,
+        address payerAddr, // 付款人
+        string payerName,
+        uint256 id,
+        uint256 amount,
+        string tType
     );
     event NewReceipt(
-        string receiptId,
-        address debtorAddr,
-        address debteeAddr,
-        uint256 amount,
-        uint256 deadline
-    );
-    event ReceiptCurAmountUpdate(string receiptId, uint256 curAmount);
-    event NewFinanceRequest(
-        string financeId,
-        string oriReceiptId,
-        address debtorAddr,
-        address debteeAddr,
+        address payeeAddr, // 收款人
+        string payeeName,
+        address payerAddr, // 付款人
+        string payerName,
+        uint256 id,
         uint256 oriAmount,
-        uint256 interestAmount,
-        uint256 deadline
+        string tType
     );
-    event NewFinanceRespond(
-        string financeId,
-        string oriReceiptId,
-        address debtorAddr,
-        address debteeAddr,
+    event UpdateReceipt(
+        address payeeAddr, // 收款人
+        string payeeName,
+        address payerAddr, // 付款人
+        string payerName,
+        uint256 id,
+        uint256 paidAmount,
         uint256 oriAmount,
-        uint256 interestAmount,
-        uint256 deadline,
-        uint256 respond
+        string tType
     );
-    event FinancePaidAmountUpdate(string financeId, uint256 curAmount);
-
-    event find_debug(string table, address addr, int256 size);
-    event print_debug(string message);
 
     function concat(string _base, string _value)
         internal
@@ -219,100 +204,129 @@ contract Supply0 {
         );
         admin.addr = adminAddr;
 
-        BankTable = concat("Bank", suffix);
+        addrs[0] = adminAddr;
+        addrCount = 1;
+
         CertifierTable = concat("Certifier", suffix);
         CompanyTable = concat("Company", suffix);
         TransactionTable = concat("Transaction", suffix);
         ReceiptTable = concat("Receipt", suffix);
-        RelatedTable = concat("RelatedTransactionReceipt", suffix);
-        FinanceTable = concat("Finance", suffix);
 
         TableFactory tf = TableFactory(0x1001);
-        tf.createTable(BankTable, "addr", "name,inCredit,outCredit");
         tf.createTable(CertifierTable, "addr", "name");
         tf.createTable(
             CompanyTable,
             "addr",
-            "name,cType,inCredit,outCredit,cashAmount"
+            "name,cType,creditAmount,cashAmount"
         );
         tf.createTable(
             TransactionTable,
-            "id",
-            "sellerAddr,buyerAddr,amount,createTime,requestStatus"
+            "payeeAddr",
+            "payerAddr,id,amount,createTime,deadline,tMode,oriReceiptId,requestStatus,info,isFinance"
         );
         tf.createTable(
             ReceiptTable,
-            "id",
-            "oriReceiptId,debtorAddr,debteeAddr,curAmount,oriAmount,createTime,deadline,requestStatus,bankSignature,coreCompanySignature"
-        );
-        tf.createTable(RelatedTable, "id", "transactionId,receiptId");
-        tf.createTable(
-            FinanceTable,
-            "id",
-            "oriReceiptId,debtorAddr,debteeAddr,paidAmount,oriAmount,interestAmount,createTime,deadline,status"
+            "payeeAddr",
+            "payerAddr,id,paidAmount,oriAmount,createTime,deadline,receiptStatus,bankSignature,coreCompanySignature,info,isFinance"
         );
     }
 
-    function openTable(string tableName) public view returns (Table) {
+    /** query  */
+
+    function _getAll(uint256 queryType) private returns (string) {
+        string memory result = "";
+        string memory next = "";
+        for (uint256 i = 0; i < addrCount; i++) {
+            if (
+                (queryType == 0 && isCertifier[addrs[i]]) ||
+                (queryType == 2 &&
+                    (isNormalCompany[addrs[i]] || isCoreCompany[addrs[i]])) ||
+                (queryType == 2 && isNormalCompany[addrs[i]]) ||
+                (queryType == 3 && isCoreCompany[addrs[i]]) ||
+                (queryType == 4 && isBank[addrs[i]])
+            ) {
+                next = concat(toString(addrs[i]), " ");
+                result = concat(result, next);
+            }
+        }
+        return result;
+    }
+
+    function getAllCertifier() public returns (string) {
+        return _getAll(0);
+    }
+
+    function getAllCompany() public returns (string) {
+        return _getAll(1);
+    }
+
+    function getAllNormalCompany() public returns (string) {
+        return _getAll(2);
+    }
+
+    function getAllCoreCompany() public returns (string) {
+        return _getAll(3);
+    }
+
+    function getAllBank() public returns (string) {
+        return _getAll(4);
+    }
+
+    function getAllRole(address addr) public returns (string) {
+        string memory result = "";
+        string memory next = "";
+
+        if (addr == admin.addr) {
+            result = concat(result, "Administrator");
+        }
+        if (isBank[addr] == true) {
+            result = concat(result, "Bank ");
+        }
+        if (isCertifier[addr] == true) {
+            result = concat(result, "Certifier ");
+        }
+        if (isNormalCompany[addr] == true) {
+            result = concat(result, "Company(Normal) ");
+        }
+        if (isCoreCompany[addr] == true) {
+            result = concat(result, "Company(Core) ");
+        }
+        return result;
+    }
+
+    /** database insert and update */
+
+    function openTable(string tableName) private view returns (Table) {
         TableFactory tf = TableFactory(0x1001);
         return tf.openTable(tableName);
     }
 
+    function getAdmin() public returns (address) {
+        return admin.addr;
+    }
+
+    /** 查询管理员分发的credit总数 */
     function queryAdminOutCredit() public view returns (uint256) {
         return admin.outCredit;
     }
 
-    function insertBank(
-        address addr,
-        string name,
-        uint256 inCredit,
-        uint256 outCredit
-    ) public {
-        Table t_bank = openTable(BankTable);
-        Entry entry = t_bank.newEntry();
-        entry.set("name", name);
-        entry.set("inCredit", inCredit);
-        entry.set("outCredit", outCredit);
-        t_bank.insert(toString(addr), entry);
+    /** 查询管理员分给某一银行的credit总数 */
+    function queryAdminOutCredit2Bank(address bankAddr)
+        public
+        view
+        returns (uint256)
+    {
+        return admin.outCreditPerBank[bankAddr];
     }
 
-    function updateBankCredit(
-        address addr,
-        uint256 inCredit,
-        uint256 outCredit
-    ) public {
-        Table t_bank = openTable(BankTable);
-        Entries entries = t_bank.select(toString(addr), t_bank.newCondition());
-        require(entries.size() > 0, "Bank should exist.");
-        require(entries.size() < 2, "Bank should be unique.");
-        Entry entry = entries.get(0);
-        entry.set("inCredit", inCredit);
-        entry.set("outCredit", outCredit);
-        t_bank.update(toString(addr), entry, t_bank.newCondition());
-    }
+    /***** handle certifier *****/
 
-    function findBank(address addr) public {
-        Table t_bank = openTable(BankTable);
-        Entries entries = t_bank.select(toString(addr), t_bank.newCondition());
-        require(entries.size() > 0, "Bank should exist.");
-        require(entries.size() < 2, "Bank should be unique.");
-        Entry entry = entries.get(0);
-        bank.addr = addr;
-        bank.name = entry.getString("name");
-        bank.inCredit = entry.getUInt("inCredit");
-        bank.outCredit = entry.getUInt("outCredit");
-    }
-
-    function queryBankCredit(address addr) public returns (uint256) {
-        findBank(addr);
-        return bank.inCredit - bank.outCredit;
-    }
-
-    function insertCertifier(address addr, string name) public {
+    function insertCertifier(address addr, string name) private {
         Table t_certifier = openTable(CertifierTable);
         Entry entry = t_certifier.newEntry();
         entry.set("name", name);
         t_certifier.insert(toString(addr), entry);
+        emit NewRegistration(addr, name, "Certifier");
     }
 
     function findCertifier(address addr) public {
@@ -327,730 +341,780 @@ contract Supply0 {
         certifier.name = entry.getString("name");
     }
 
+    /***** handle company *****/
+
     function insertCompany(
         address addr,
         string name,
         uint256 cType,
-        uint256 inCredit,
-        uint256 outCredit,
+        uint256 creditAmount,
         uint256 cashAmount
-    ) public {
+    ) private {
         Table t_company = openTable(CompanyTable);
         Entry entry = t_company.newEntry();
         entry.set("name", name);
         entry.set("cType", cType);
-        entry.set("inCredit", inCredit);
-        entry.set("outCredit", outCredit);
+        entry.set("creditAmount", creditAmount);
         entry.set("cashAmount", cashAmount);
         t_company.insert(toString(addr), entry);
+        string memory rType;
+        if (cType == cType_bank) {
+            rType = "Bank";
+        } else {
+            rType = "Company(Normal)";
+        }
+        emit NewRegistration(addr, name, rType);
     }
 
-    function updateCompanyType(address addr, uint256 cType) public {
-        Table t_company = openTable(CompanyTable);
-        Entries entries =
-            t_company.select(toString(addr), t_company.newCondition());
-        require(entries.size() > 0, "Company should exist.");
-        require(entries.size() < 2, "Company should be unique.");
-        Entry entry = entries.get(0);
-        entry.set("cType", cType);
-        t_company.update(toString(addr), entry, t_company.newCondition());
-    }
-
-    function updateCompanyCredit(
+    function updateCompanyUInt1(
         address addr,
-        uint256 inCredit,
-        uint256 outCredit
-    ) public {
+        string field,
+        uint256 value
+    ) private {
         Table t_company = openTable(CompanyTable);
         Entries entries =
             t_company.select(toString(addr), t_company.newCondition());
-        require(entries.size() > 0, "Company should exist.");
-        require(entries.size() < 2, "Company should be unique.");
-        // require(entries.size() == 1, "Bank should exist and be unique");
+        require(entries.size() > 0, "Company or bank should exist.");
+        require(entries.size() < 2, "Company or bank should be unique.");
         Entry entry = entries.get(0);
-        entry.set("inCredit", inCredit);
-        entry.set("outCredit", outCredit);
+        entry.set(field, value);
         t_company.update(toString(addr), entry, t_company.newCondition());
+
+        if (field == "cType" && value == cType_core) {
+            emit NewRegistration(
+                addr,
+                entry.getString("name"),
+                "Company(core)"
+            );
+        } else {
+            emit UpdateCompany(
+                addr,
+                entry.getString("name"),
+                field,
+                value,
+                "Company"
+            );
+        }
     }
 
-    function updateCompanyCash(address addr, uint256 cashAmount) public {
-        Table t_company = openTable(CompanyTable);
-        Entries entries =
-            t_company.select(toString(addr), t_company.newCondition());
-        require(entries.size() > 0, "Company should exist.");
-        require(entries.size() < 2, "Company should be unique.");
-        Entry entry = entries.get(0);
-        entry.set("cashAmount", cashAmount);
-        t_company.update(toString(addr), entry, t_company.newCondition());
-    }
-
-    function updateCompanyCashCredit(
+    function updateCompanyUInt2(
         address addr,
-        uint256 cashAmount,
-        uint256 inCredit,
-        uint256 outCredit
-    ) public {
+        string field_1,
+        uint256 value_1,
+        string field_2,
+        uint256 value_2
+    ) private {
         Table t_company = openTable(CompanyTable);
         Entries entries =
             t_company.select(toString(addr), t_company.newCondition());
         require(entries.size() > 0, "Company should exist.");
         require(entries.size() < 2, "Company should be unique.");
-        // require(entries.size() == 1, "Bank should exist and be unique");
         Entry entry = entries.get(0);
-        entry.set("cashAmount", cashAmount);
-        entry.set("inCredit", inCredit);
-        entry.set("outCredit", outCredit);
+        entry.set(field_1, value_1);
+        entry.set(field_2, value_2);
         t_company.update(toString(addr), entry, t_company.newCondition());
+        emit UpdateCompany2(
+            addr,
+            entry.getString("name"),
+            field_1,
+            value_1,
+            field_2,
+            value_2,
+            "Company"
+        );
     }
 
-    function findCompany(address addr) public {
+    function findCompany(address addr, bool isBank) private {
         Table t_company = openTable(CompanyTable);
-        Entries entries =
-            t_company.select(toString(addr), t_company.newCondition());
+        Condition cond = t_company.newCondition();
+        if (isBank == true) {
+            cond.EQ(cType_bank);
+        } else {
+            cond.NE(cType_bank);
+        }
+        Entries entries = t_company.select(toString(addr), cond);
         emit find_debug(CompanyTable, addr, entries.size());
-        require(entries.size() > 0, "Company should exist.");
-        require(entries.size() < 2, "Company should be unique.");
+        require(entries.size() > 0, "Company or bank should exist.");
+        require(entries.size() < 2, "Company or bank should be unique.");
         Entry entry = entries.get(0);
         company.addr = addr;
         company.name = entry.getString("name");
         company.cType = entry.getUInt("cType");
-        company.inCredit = entry.getUInt("inCredit");
-        company.outCredit = entry.getUInt("outCredit");
+        company.creditAmount = entry.getUInt("creditAmount");
         company.cashAmount = entry.getUInt("cashAmount");
     }
 
-    function queryCompanyCredit(address addr) public returns (uint256) {
+    /** 查询公司或银行的type, credit余额, cash余额 */
+    function queryCompanyField(address addr, string field)
+        public
+        returns (uint256)
+    {
+        require(
+            field == "cType" ||
+                field == "creditAmount" ||
+                field == "cashAmount",
+            "Field should be cType, creditAmount or cashAmount."
+        );
         findCompany(addr);
-        return company.inCredit - company.outCredit;
+        if (field == "cType") return company.cType;
+        if (field == "creditAmount") return company.creditAmount;
+        return company.cashAmount;
     }
 
+    /***** handle transaction *****/
+
     function insertTransaction(
-        string id,
-        address sellerAddr,
-        address buyerAddr,
+        address payeeAddr,
+        address payerAddr,
+        uint256 id,
         uint256 amount,
         uint256 createTime,
         uint256 deadline,
         uint256 tMode,
         string oriReceiptId,
-        uint256 requestStatus
-    ) public {
+        uint256 requestStatus,
+        string info,
+        uint256 isFinance
+    ) private {
         Table t_transaction = openTable(TransactionTable);
         Entry entry = t_transaction.newEntry();
-        entry.set("sellerAddr", sellerAddr);
-        entry.set("buyerAddr", buyerAddr);
+        entry.set("payerAddr", payerAddr);
+        entry.set("id", id);
         entry.set("amount", amount);
         entry.set("createTime", createTime);
         entry.set("deadline", deadline);
         entry.set("tMode", tMode);
         entry.set("oriReceiptId", oriReceiptId);
         entry.set("requestStatus", requestStatus);
-        t_transaction.insert(id, entry);
+        entry.set("info", info);
+        entry.set("isFinance", isFinance);
+        t_transaction.insert(toString(payeeAddr), entry);
     }
 
-    function findTransaction(string id) public {
+    function findTransaction(string key, uint256 id) private {
         Table t_transaction = openTable(TransactionTable);
-        Entries entries =
-            t_transaction.select(id, t_transaction.newCondition());
+        Condition cond = t_transaction.newCondition();
+        cond.EQ("id", id);
+        Entries entries = t_transaction.select(key, cond);
         require(entries.size() > 0, "Transaction should exist.");
         require(entries.size() < 2, "Transaction should be unique.");
         Entry entry = entries.get(0);
+        transaction.payeeAddr = entry.getAddress("payeeAddr");
+        transaction.payerAddr = entry.getAddress("payerAddr");
         transaction.id = id;
-        transaction.sellerAddr = entry.getAddress("sellerAddr");
-        transaction.buyerAddr = entry.getAddress("buyerAddr");
         transaction.amount = entry.getUInt("amount");
         transaction.createTime = entry.getUInt("createTime");
         transaction.deadline = entry.getUInt("deadline");
         transaction.tMode = entry.getUInt("tMode");
         transaction.oriReceiptId = entry.getString("oriReceiptId");
         transaction.requestStatus = entry.getUInt("requestStatus");
+        transaction.info = entry.getString("info");
+        transaction.isFinance = entry.getUInt("isFinance");
     }
 
-    function updateTransactionStatus(string id, uint256 requestStatus) public {
+    function updateTransactionUInt1(
+        string key,
+        uint256 id,
+        string field,
+        uint256 value
+    ) private {
         Table t_transaction = openTable(TransactionTable);
-        Entries entries =
-            t_transaction.select(id, t_transaction.newCondition());
+        Condition cond = t_transaction.newCondition();
+        cond.EQ("id", id);
+        Entries entries = t_transaction.select(key, cond);
         require(entries.size() > 0, "Transaction should exist.");
         require(entries.size() < 2, "Transaction should be unique.");
         Entry entry = entries.get(0);
-        entry.set("requestStatus", requestStatus);
-        t_transaction.update(id, entry, t_transaction.newCondition());
+        entry.set(field, value);
+        t_transaction.update(key, entry, cond);
     }
 
+    /***** handle receipt *****/
+
     function insertReceipt(
-        string id,
-        address debtorAddr,
-        address debteeAddr,
-        uint256 curAmount,
+        address payeeAddr,
+        address payerAddr,
+        uint256 id,
+        uint256 paidAmount,
         uint256 oriAmount,
         uint256 createTime,
         uint256 deadline,
+        uint256 receiptStatus,
         string bankSignature,
-        string coreCompanySignature
+        string coreCompanySignature,
+        string info,
+        uint256 isFinance
     ) public {
         Table t_receipt = openTable(ReceiptTable);
         Entry entry = t_receipt.newEntry();
-        entry.set("debtorAddr", debtorAddr);
-        entry.set("debteeAddr", debteeAddr);
-        entry.set("curAmount", curAmount);
+        entry.set("payerAddr", payerAddr);
+        entry.set("id", id);
+        entry.set("paidAmount", paidAmount);
         entry.set("oriAmount", oriAmount);
         entry.set("createTime", createTime);
         entry.set("deadline", deadline);
+        entrt.set("receiptStatus", receiptStatus);
         entry.set("bankSignature", bankSignature);
         entry.set("coreCompanySignature", coreCompanySignature);
-        t_receipt.insert(id, entry);
+        entry.set("info", info);
+        entry.set("isFinance", isFinance);
+        t_receipt.insert(toString(payeeAddr), entry);
     }
 
-    function findReceipt(string id) public {
+    function findReceipt(string key, uint256 id) public {
         Table t_receipt = openTable(ReceiptTable);
-        Entries entries = t_receipt.select(id, t_receipt.newCondition());
+        Condition cond = t_receipt.newCondition();
+        cond.EQ("id", id);
+        Entries entries = t_receipt.select(key, cond);
         require(entries.size() > 0, "Receipt should exist.");
         require(entries.size() < 2, "Receipt should be unique.");
         Entry entry = entries.get(0);
-        receipt.id = id;
-        receipt.debtorAddr = entry.getAddress("debtorAddr");
-        receipt.debteeAddr = entry.getAddress("debteeAddr");
-        receipt.curAmount = entry.getUInt("curAmount");
+        receipt.payeeAddr = entry.getAddress("payeeAddr");
+        receipt.payerAddr = entry.getAddress("payerAddr");
+        receipt.id = entry.getUInt("id");
+        receipt.paidAmount = entry.getUInt("paidAmount");
         receipt.oriAmount = entry.getUInt("oriAmount");
         receipt.createTime = entry.getUInt("createTime");
         receipt.deadline = entry.getUInt("deadline");
+        receipt.receiptStatus = entry.getUInt("receiptStatus");
         receipt.bankSignature = entry.getString("bankSignature");
         receipt.coreCompanySignature = entry.getString("coreCompanySignature");
+        receipt.info = entry.getString("info");
+        receipt.isFinance = entry.getUInt("isFinance");
     }
 
-    function updateReceiptAmount(string id, uint256 curAmount) public {
+    function updateReceiptUInt1(
+        string key,
+        uint256 id,
+        string field,
+        uint256 value
+    ) private {
         Table t_receipt = openTable(ReceiptTable);
-        Entries entries = t_receipt.select(id, t_receipt.newCondition());
+        Condition cond = t_receipt.newCondition();
+        cond.EQ("id", id);
+        Entries entries = t_receipt.select(key, cond);
         require(entries.size() > 0, "Receipt should exist.");
         require(entries.size() < 2, "Receipt should be unique.");
         Entry entry = entries.get(0);
-        entry.set("curAmount", curAmount);
-        t_receipt.update(id, entry, t_receipt.newCondition());
+        entry.set(field, value);
+        if (field == "paidAmount" && value >= entry.getUInt("oriAmount")) {
+            entry.set("receiptStatus", ReceiptStatus_settled);
+        }
+        t_receipt.update(key, entry, cond);
     }
 
-    function insertFinance(
-        string id,
-        string oriReceiptId,
-        address debtorAddr,
-        address debteeAddr,
-        uint256 paidAmount,
-        uint256 oriAmount,
-        uint256 interestAmount,
-        uint256 createTime,
-        uint256 deadline,
-        uint256 status
+    /***** register *****/
+
+    /** 只有admin能认证bank */
+    function registerBank(
+        address senderAddr,
+        address bankAddr,
+        string name
     ) public {
-        Table t_finance = openTable(FinanceTable);
-        Entry entry = t_finance.newEntry();
-        entry.set("oriReceiptId", oriReceiptId);
-        entry.set("debtorAddr", debtorAddr);
-        entry.set("debteeAddr", debteeAddr);
-        entry.set("paidAmount", paidAmount);
-        entry.set("oriAmount", oriAmount);
-        entry.set("interestAmount", interestAmount);
-        entry.set("createTime", createTime);
-        entry.set("deadline", deadline);
-        entry.set("status", status);
-        t_finance.insert(id, entry);
-    }
-
-    function findFinance(string id) public {
-        Table t_finance = openTable(FinanceTable);
-        Entries entries = t_finance.select(id, t_finance.newCondition());
-        require(entries.size() > 0, "Finance should exist.");
-        require(entries.size() < 2, "Finance should be unique.");
-        Entry entry = entries.get(0);
-        finance.id = id;
-        finance.oriReceiptId = entry.getString("oriReceiptId");
-        finance.debtorAddr = entry.getAddress("debtorAddr");
-        finance.debteeAddr = entry.getAddress("debteeAddr");
-        finance.paidAmount = entry.getUInt("paidAmount");
-        finance.oriAmount = entry.getUInt("oriAmount");
-        finance.interestAmount = entry.getUInt("interestAmount");
-        finance.createTime = entry.getUInt("createTime");
-        finance.deadline = entry.getUInt("deadline");
-        finance.status = entry.getUInt("status");
-    }
-
-    function updateFinanceStatus(string id, uint256 status) public {
-        Table t_finance = openTable(FinanceTable);
-        Entries entries = t_finance.select(id, t_finance.newCondition());
-        require(entries.size() > 0, "Finance should exist.");
-        require(entries.size() < 2, "Finance should be unique.");
-        Entry entry = entries.get(0);
-        entry.set("status", status);
-        t_finance.update(id, entry, t_finance.newCondition());
-    }
-
-    function updateFinancePaidAmount(string id, uint256 paidAmount) public {
-        Table t_finance = openTable(FinanceTable);
-        Entries entries = t_finance.select(id, t_finance.newCondition());
-        require(entries.size() > 0, "Finance should exist.");
-        require(entries.size() < 2, "Finance should be unique.");
-        Entry entry = entries.get(0);
-        entry.set("paidAmount", paidAmount);
-        t_finance.update(id, entry, t_finance.newCondition());
-    }
-
-    function registerBank(address addr, string name) public {
         require(
-            msg.sender == admin.addr,
+            senderAddr == admin.addr,
             "Only administrator can register banks"
         );
-        insertBank(addr, name, 0, 0);
-        emit BankRegistration(addr, name);
+        insertCompany(bankAddr, name, cType_bank, 0, 0);
     }
 
-    function registerCertifier(address addr, string name) public {
+    /** 只有admin能认证第三方监管机构certifier */
+    function registerCertifier(
+        address senderAddr,
+        address certifierAddr,
+        string name
+    ) public {
         require(
-            msg.sender == admin.addr,
+            senderAddr == admin.addr,
             "Only administrator can register certifiers"
         );
-        insertCertifier(addr, name);
-        emit CertifierRegistration(addr, name);
+        insertCertifier(certifierAddr, name);
     }
 
-    function registerCompany(address addr, string name) public {
+    /** 只有certifier能认证公司（normal） */
+    function registerCompany(
+        address senderAddr,
+        address companyAddr,
+        string name
+    ) public {
         // Only certifier can register certifiers.
         // Administrator can register itself to be a certifier.
-        findCertifier(msg.sender);
-        insertCompany(addr, name, CompanyType_normal, 0, 0, 0);
-        emit CompanyRegistration(addr, name);
+        findCertifier(senderAddr);
+        insertCompany(companyAddr, name, CompanyType_normal, 0, 0);
     }
 
-    function registerCoreCompany(address addr) public {
-        findCertifier(msg.sender);
-        findCompany(addr);
+    /** 只有certifier能将normal公司认证为core公司 */
+    function registerCoreCompany(address senderAddr, address companyAddr)
+        public
+    {
+        findCertifier(senderAddr);
+        findCompany(companyAddr, false);
         require(
             company.cType != CompanyType_core,
             "This company is already a core company"
         );
-        updateCompanyType(addr, CompanyType_core);
-        emit CoreCompanyRegistration(addr, company.name);
+        updateCompanyUInt1(companyAddr, "cType", CompanyType_core);
     }
 
-    function creditDistributionToBank(address bankAddr, uint256 amount) public {
+    /***** credit的分发（授信）和 强制回收*****/
+
+    /** admin将credit分发给bank */
+    function creditDistributionToBank(
+        address senderAddr,
+        address bankAddr,
+        uint256 amount
+    ) public {
         require(
-            msg.sender == admin.addr,
+            senderAddr == admin.addr,
             "Only administrator can distribute credit to banks"
         );
-        findBank(bankAddr);
-        bank.inCredit += amount;
+        // bank
+        findCompany(bankAddr, true);
+        updateCompanyUInt1(
+            bankAddr,
+            "creditAmount",
+            company.creditAmount + amount
+        );
+        // admin
         admin.outCredit += amount;
         admin.outCreditPerBank[bankAddr] += amount;
-        updateBankCredit(bankAddr, bank.inCredit, bank.outCredit);
     }
 
-    // called by admin. force return
-    function creditReturnFromBank(address bankAddr, uint256 amount) public {
+    /** admin强制要求bank返回credit */
+    function creditReturnFromBank(
+        address senderAddr,
+        address bankAddr,
+        uint256 amount
+    ) public {
         require(
-            msg.sender == admin.addr,
+            senderAddr == admin.addr,
             "Only administrator can force banks to return credit."
         );
-        findBank(bankAddr);
+        // bank
+        findCompany(bankAddr, true);
         require(
-            bank.inCredit - bank.outCredit >= amount,
+            company.creditAmount >= amount,
             "The bank doesn't have enough credit points."
         );
-        bank.inCredit -= amount;
+        updateCompanyUInt1(
+            bankAddr,
+            "creditAmount",
+            company.creditAmount - amount
+        );
+        // admin
         admin.outCredit -= amount;
         admin.outCreditPerBank[bankAddr] -= amount;
-        updateBankCredit(bankAddr, bank.inCredit, bank.outCredit);
     }
 
-    function creditDistributionToCore(address coreAddr, uint256 amount) public {
-        findBank(msg.sender);
+    /** bank将credit分发给core company*/
+    function creditDistributionToCore(
+        address senderAddr, // bankAddr
+        address coreAddr,
+        uint256 amount
+    ) public {
+        findCompany(senderAddr, true);
+        require(
+            company.creditAmount >= amount,
+            "Bank doesn't have enough credit."
+        );
+        uint256 bankCreditAmount = company.creditAmount;
+
         findCompany(coreAddr);
         require(
             company.cType == CompanyType_core,
             "Must distribute credit to core company."
         );
-        // findBank(bankAddr);
-        company.inCredit += amount;
-        bank.outCredit += amount;
-        updateCompanyCredit(coreAddr, company.inCredit, company.outCredit);
-        updateBankCredit(bank.addr, bank.inCredit, bank.outCredit);
+
+        updateCompanyUInt1(
+            senderAddr,
+            "creditAmount",
+            bankCreditAmount - amount
+        );
+        updateCompanyUInt1(
+            coreAddr,
+            "creditAmount",
+            company.creditAmount + amount
+        );
     }
 
-    // called by bank. force return
-    function creditReturnFromCore(address coreAddr, uint256 amount) public {
-        findBank(msg.sender);
+    /** bank强制要求core company返回credit */
+    function creditReturnFromCore(
+        address senderAddr, // bankAddr
+        address coreAddr,
+        uint256 amount
+    ) public {
+        findCompany(senderAddr, true);
+        uint256 bankCreditAmount = company.creditAmount;
         findCompany(coreAddr);
         require(
             company.cType == CompanyType_core,
             "Must force credit return from core company."
         );
         require(
-            company.inCredit - company.outCredit >= amount,
+            company.creditAmount >= amount,
             "The company doesn't have enough credit points."
         );
-        company.inCredit -= amount;
-        bank.outCredit -= amount;
-        updateCompanyCredit(coreAddr, company.inCredit, company.outCredit);
-        updateBankCredit(bank.addr, bank.inCredit, bank.outCredit);
+
+        updateCompanyUInt1(
+            senderAddr,
+            "creditAmount",
+            bankCreditAmount + amount
+        );
+        updateCompanyUInt1(
+            coreAddr,
+            "creditAmount",
+            company.creditAmount + amount
+        );
     }
 
-    function transactionRequest(
-        address sellerAddr,
+    function _transactionRequest(
+        address payerAddr,
+        bool isPayerBank,
+        address payeeAddr,
+        bool isPayeeBank,
         uint256 amount,
         uint256 deadline,
         uint256 tMode,
-        string memory oriReceiptId
-    ) public {
+        uint256 oriReceiptId,
+        string memory info,
+        string memory tType
+    ) private {
         require(amount > 0, "Amount <= 0 is not allowed.");
         require(
             tMode == 0 || tMode == 1,
-            "tMode should be 0 or 1: 0 stands for making new receipt, 1 stands for transfering origin receipt"
+            "tMode should be 0 or 1: "
+            "0 stands for making new receipt, "
+            "1 stands for transfering origin receipt"
         );
-        address buyerAddr = msg.sender;
-        findCompany(buyerAddr);
+        // payer
+        findCompany(payerAddr, isPayerBank);
+        string memory payerName = company.name;
         require(
-            company.inCredit - company.outCredit >= amount,
-            "Buyer doesn't have enough credit points."
+            company.creditAmount >= amount,
+            "Payer doesn't have enough credit points."
         );
-        // Company memory buyer = company;
-        findCompany(sellerAddr);
-        // Company memory seller = company;
+
+        // payee
+        findCompany(payeeAddr, isPayeeBank);
 
         if (tMode == TransactionMode_transfer) {
-            // require(
-            //     buyer.cType == CompanyType_core,
-            //     "Buyer should be core company if the transaction isn't paid by transfer extant receipt."
-            // );
-            findReceipt(oriReceiptId);
+            findReceipt(payerAddr, oriReceiptId);
             require(
-                receipt.curAmount >= amount,
-                "Not enough amount in origin receipt."
+                receipt.oriAmount - receipt.paidAmount >= amount,
+                "Not enough unpaid money in origin receipt."
+            );
+            require(
+                receipt.deadline >= deadline,
+                "Deadline of finance should >= deadline of oriReceipt."
             );
         } else {
-            oriReceiptId = new string(0);
+            oriReceiptId = 0;
         }
 
-        string memory transactionId =
-            new string(
-                uint256(
-                    keccak256(
-                        abi.encodePacked(sellerAddr, buyerAddr, amount, now)
-                    )
-                )
-            );
+        uint256 transactionId = uint256(keccak256(now));
         insertTransaction(
+            payeeAddr,
+            payerAddr,
             transactionId,
-            sellerAddr,
-            buyerAddr,
             amount,
             now,
             deadline,
             tMode,
             oriReceiptId,
-            RequestStatus_sent
+            RequestStatus_sent,
+            info,
+            0
         );
-        emit NewTransactionRequest(
-            transactionId,
-            sellerAddr,
-            buyerAddr,
-            amount
+        emit NewRequest(
+            payeeAddr,
+            company.name,
+            payerAddr,
+            payerName,
+            amount,
+            tType
         );
     }
 
-    function transactionRespond(string transactionId, uint256 respond) public {
+    function _transactionRespond(
+        address payeeAddr,
+        bool isPayeeBank,
+        address payerAddr,
+        bool isPayerBank,
+        uint256 transactionId,
+        uint256 respond,
+        string memory tType
+    ) private {
         require(
             respond == 0 || respond == 1,
-            "Respond is 0 or 1: 0 stands for refusing, 1 stands for accepting."
+            "Respond is 0 or 1: "
+            "0 stands for refusing, "
+            "1 stands for accepting."
         );
-        findTransaction(transactionId);
-        // address sellerAddr = transaction.sellerAddr;
-        // address buyerAddr = transaction.buyerAddr;
-        // uint256 amount = transaction.amount;
-        // uint256 deadline = transaction.deadline;
-        // uint256 tMode = transaction.tMode;
-        // string memory oriReceiptId = transaction.oriReceiptId;
-        // Company memory buyer = company;
-        // Company memory seller = company;
+
+        findTransaction(payeeAddr, transactionId);
+        uint256 amount = transaction.amount;
+        uint256 oriReceiptId = transaction.oriReceiptId;
 
         if (respond == 0) {
-            updateTransactionStatus(transactionId, RequestStatus_refused);
+            updateTransactionUInt1(
+                payeeAddr,
+                transactionId,
+                "requestStatus",
+                RequestStatus_refused
+            );
         } else {
-            findCompany(transaction.buyerAddr);
+            findCompany(payerAddr, isPayerBank);
             require(
-                company.inCredit - company.outCredit >= transaction.amount,
-                "Buyer doesn't has enough credit."
+                company.creditAmount >= amount,
+                "Payer doesn't has enough credit points."
             );
 
             if (transaction.tMode == TransactionMode_transfer) {
                 // split receipt
-                findReceipt(transaction.oriReceiptId);
-                // Receipt memory oriReceipt = receipt;
+                findReceipt(payerAddr, oriReceiptId);
                 require(
-                    receipt.curAmount >= transaction.amount,
-                    "Not enough amount in origin receipt."
+                    receipt.oriAmount - receipt.paidAmount >= amount,
+                    "Not enough unpaid money in origin receipt."
                 );
-                receipt.curAmount -= transaction.amount;
-                updateReceiptAmount(receipt.id, receipt.curAmount);
-                emit ReceiptCurAmountUpdate(receipt.id, receipt.curAmount);
+                updateReceiptUInt1(
+                    payerAddr,
+                    oriReceipt,
+                    "oriAmount",
+                    receipt.oriAmount - amount
+                );
             }
-            // seller
-            findCompany(transaction.sellerAddr);
-            company.inCredit += transaction.amount;
-            updateCompanyCredit(
-                company.addr,
-                company.inCredit,
-                company.outCredit
+            // payer
+            findCompany(payerAddr, isPayerBank);
+            string memory payerName = company.name;
+            updateCompanyUInt1(
+                payerAddr,
+                "creditAmount",
+                company.creditAmount - amount
             );
-            // buyer
-            findCompany(transaction.buyerAddr);
-            company.outCredit += transaction.amount;
-            updateCompanyCredit(
-                company.addr,
-                company.inCredit,
-                company.outCredit
+            // payee
+            findCompany(payeeAddr, isPayeeBank);
+            updateCompanyUInt1(
+                payeeAddr,
+                "creditAmount",
+                company.creditAmount + amount
             );
-            string memory receiptId =
-                new string(
-                    uint256(
-                        keccak256(
-                            abi.encodePacked(
-                                transaction.sellerAddr,
-                                transaction.buyerAddr,
-                                transaction.amount,
-                                transaction.deadline,
-                                now
-                            )
-                        )
-                    )
-                );
+
+            uint256 receiptId = uint256(keccak256(now));
             insertReceipt(
+                payeeAddr,
+                payerAddr,
                 receiptId,
-                transaction.sellerAddr,
-                transaction.buyerAddr,
-                transaction.amount,
-                transaction.amount,
+                0,
+                amount,
                 now,
                 transaction.deadline,
+                ReceiptStatus_paying,
                 "bankSignature",
-                "coreCompanySignature"
-                // transaction.bankSignature,
-                // transaction.coreCompanySignature
+                "coreCompanySignature",
+                transaction.info,
+                0
             );
-            emit NewReceipt(
-                receiptId,
-                transaction.sellerAddr,
-                transaction.buyerAddr,
-                transaction.amount,
-                transaction.deadline
+            updateTransactionUInt1(
+                payeeAddr,
+                transactionId,
+                "requestStatus",
+                RequestStatus_accepted
             );
-            updateTransactionStatus(transactionId, RequestStatus_accepted);
         }
-        emit NewTransactionRespond(
-            transaction.id,
-            transaction.sellerAddr,
-            transaction.buyerAddr,
-            transaction.amount,
-            respond
+        emit NewRespond(
+            payeeAddr,
+            company.name,
+            payerAddr,
+            payerName,
+            transactionId,
+            amount,
+            respond,
+            tType
         );
     }
 
-    // request sent by company
-    function financeRequest(
-        address bankAddr,
-        string oriReceiptId,
-        uint256 oriAmount,
-        uint256 interestAmount,
-        uint256 deadline
+    function transactionRequestWithNewReceipt(
+        address senderAddr,
+        address payeeAddr,
+        uint256 amount,
+        uint256 deadline,
+        string memory info
     ) public {
-        findCompany(msg.sender);
-        findBank(bankAddr);
-        findReceipt(oriReceiptId);
-
-        uint256 amount = oriAmount + interestAmount;
-        require(amount > 0, "Amount <= 0 is not allowed.");
-        require(
-            company.inCredit - company.outCredit >= amount,
-            "Company doesn't have enough credit points."
-        );
-        require(
-            receipt.curAmount >= amount,
-            "There isn't enough money in this receipt."
-        );
-        require(
-            receipt.deadline >= deadline,
-            "Deadline of finance should >= deadline of oriReceipt."
-        );
-        string memory financeId =
-            new string(
-                uint256(
-                    keccak256(
-                        abi.encodePacked(
-                            msg.sender,
-                            bankAddr,
-                            oriReceiptId,
-                            amount,
-                            now
-                        )
-                    )
-                )
-            );
-        insertFinance(
-            financeId,
-            oriReceiptId,
-            bankAddr,
-            company.addr,
-            0,
-            oriAmount,
-            interestAmount,
-            now,
+        _transactionRequest(
+            senderAddr,
+            false,
+            payeeAddr,
+            false,
+            amount,
             deadline,
-            FinanceStatus_requestSent
+            0,
+            0,
+            info,
+            "Transaction"
         );
-        emit NewFinanceRequest(
-            financeId,
+    }
+
+    function transactionRequestWithOldReceipt(
+        address senderAddr,
+        address payeeAddr,
+        uint256 amount,
+        uint256 deadline,
+        uint256 oriReceiptId,
+        string memory info
+    ) public {
+        _transactionRequest(
+            senderAddr,
+            false,
+            payeeAddr,
+            false,
+            amount,
+            deadline,
+            1,
             oriReceiptId,
-            bankAddr,
-            company.addr,
-            oriAmount,
-            interestAmount,
-            deadline
+            info,
+            "Transaction"
         );
     }
 
-    function financeRespond(string financeId, uint256 respond) public {
-        require(
-            respond == 0 || respond == 1,
-            "Respond is 0 or 1: 0 stands for refusing, 1 stands for accepting."
-        );
-        findFinance(financeId);
-
-        if (respond == 0) {
-            updateFinanceStatus(financeId, FinanceStatus_refused);
-        } else {
-            findCompany(finance.debteeAddr);
-            require(
-                company.inCredit - company.outCredit >= amount,
-                "Company doesn't has enough credit."
-            );
-
-            findReceipt(finance.oriReceiptId);
-            uint256 amount = finance.oriAmount + finance.interestAmount;
-            require(
-                receipt.curAmount >= amount,
-                "Not enough amount in origin receipt."
-            );
-            receipt.curAmount -= amount;
-            updateReceiptAmount(receipt.id, receipt.curAmount);
-            emit ReceiptCurAmountUpdate(receipt.id, receipt.curAmount);
-
-            // company
-            // findCompany(finance.debteeAddr);
-            company.outCredit += amount;
-            updateCompanyCashCredit(
-                company.addr,
-                company.cashAmount + amount,
-                company.inCredit,
-                company.outCredit + amount
-            );
-            // bank
-            findBank(finance.debtorAddr);
-            bank.inCredit += amount;
-            updateBankCredit(bank.addr, bank.inCredit, bank.outCredit);
-
-            updateFinanceStatus(financeId, FinanceStatus_accepted);
-        }
-
-        emit NewFinanceRespond(
-            finance.id,
-            finance.oriReceiptId,
-            finance.debtorAddr,
-            finance.debteeAddr,
-            finance.oriAmount,
-            finance.interestAmount,
-            finance.deadline,
-            respond
+    function financeRequest(
+        address senderAddr,
+        address payeeAddr,
+        uint256 amount,
+        uint256 deadline,
+        uint256 oriReceiptId,
+        string memory info
+    ) public {
+        _transactionRequest(
+            senderAddr,
+            false,
+            payeeAddr,
+            true,
+            amount,
+            deadline,
+            1,
+            oriReceiptId,
+            info,
+            "Finance"
         );
     }
 
-    function depositCash(address companyAddr, uint256 amount) public {
-        findBank(msg.sender);
-        findCompany(companyAddr);
-        updateCompanyCash(companyAddr, company.cashAmount + amount);
+    function transactionRespond(
+        address senderAddr,
+        address payerAddr,
+        uint256 transactionId,
+        uint256 respond
+    ) public {
+        _transactionRespond(
+            senderAddr,
+            false,
+            payerAddr,
+            false,
+            transactionId,
+            respond,
+            "Transaction"
+        );
     }
 
-    function withdrawCash(address companyAddr, uint256 amount) public {
-        findBank(msg.sender);
-        findCompany(companyAddr);
+    function financeRespond(
+        address senderAddr,
+        address payerAddr,
+        uint256 financeId,
+        uint256 respond
+    ) public {
+        _transactionRespond(
+            senderAddr,
+            true,
+            payerAddr,
+            false,
+            financeId,
+            respond,
+            "Finance"
+        );
+    }
+
+    function depositCash(
+        address senderAddr, // bankAddr
+        address companyAddr,
+        uint256 amount
+    ) public {
+        findCompany(senderAddr, true);
+        findCompany(companyAddr, false);
+        updateCompanyUInt1(
+            companyAddr,
+            "cashAmount",
+            company.cashAmount + amount
+        );
+    }
+
+    function withdrawCash(
+        address senderAddr, // bankAddr
+        address companyAddr,
+        uint256 amount
+    ) public {
+        findCompany(sender, true);
+        findCompany(companyAddr, false);
         require(
             company.cashAmount >= amount,
             "Company doesn't have enough cash."
         );
-        updateCompanyCash(companyAddr, company.cashAmount - amount);
+        updateCompanyUInt1(
+            companyAddr,
+            "cashAmount",
+            company.cashAmount - amount
+        );
     }
 
-    function payReceipt(string receiptId, uint256 amount) public {
-        findCompany(msg.sender);
-        Company storage payer = company;
+    function _payReceipt(
+        address payerAddr,
+        address payeeAddr,
+        bool isPayeeBank,
+        string receiptId,
+        uint256 amount
+    ) private {
+        findCompany(payerAddr, false);
+        uint256 payerCashAmount = company.cashAmount;
+        uint256 payerCreditAmount = company.creditAmount;
         require(
             payer.cashAmount >= amount,
             "Payer doesn't have enough cash to pay."
         );
-        findReceipt(receiptId);
-        require(receipt.debteeAddr == company.addr, "Payer should be debtee.");
+        findCompany(payeeAddr, isPayeeBank);
         require(
-            receipt.curAmount + amount <= receipt.oriAmount,
-            "Should not pay more than the amount of receipt."
-        );
-        findCompany(receipt.debtorAddr);
-        require(
-            company.inCredit - company.outCredit >= amount,
+            company.credit >= amount,
             "Payee doesn't have enough credit to return."
         );
+        findReceipt(payeeAddr, receiptId);
+        require(receipt.payeeAddr == payeeAddr, "Wrong payee.");
 
-        updateCompanyCashCredit(
-            payer.addr,
-            payer.cashAmount - amount,
-            payer.inCredit + amount,
-            payer.outCredit
+        updateCompanyUInt2(
+            payerAddr,
+            "cashAmount",
+            payerCashAmount - amount,
+            "creditAmount",
+            payerCreditAmount + amount
         );
-        updateCompanyCashCredit(
-            company.addr,
-            company.cashAmount + amount,
-            company.inCredit,
-            company.outCredit + amount
+        updateCompanyUInt2(
+            payeeAddr,
+            "cashAmount",
+            payee.cashAmount + amount,
+            "creditAmount",
+            payee.creditAmount - amount
         );
-
-        receipt.curAmount += amount;
-        updateReceiptAmount(receiptId, receipt.curAmount);
-        emit ReceiptCurAmountUpdate(receiptId, receipt.curAmount);
+        updateReceiptUInt1(
+            payeeAddr,
+            receiptId,
+            "paidAmount",
+            receipt.paidAmount + amount
+        );
     }
 
-    function payFinance(string financeId, uint256 amount) public {
-        findCompany(msg.sender);
-        Company storage payer = company;
-        require(
-            payer.cashAmount >= amount,
-            "Payer doesn't have enough cash to pay."
-        );
-        findFinance(financeId);
-        require(finance.debteeAddr == company.addr, "Payer should be debtee.");
-        require(
-            finance.paidAmount + amount <=
-                finance.oriAmount + finance.interestAmount,
-            "Should not pay more than the amount of finance."
-        );
-        findBank(finance.debtorAddr);
-        require(
-            bank.inCredit - bank.outCredit >= amount,
-            "Bank doesn't have enough credit to return."
-        );
-
-        updateCompanyCashCredit(
-            payer.addr,
-            payer.cashAmount - amount,
-            payer.inCredit + amount,
-            payer.outCredit
-        );
-        updateBankCredit(bank.addr, bank.inCredit, bank.outCredit + amount);
-
-        finance.paidAmount += amount;
-        updateFinancePaidAmount(financeId, finance.paidAmount);
-        emit FinancePaidAmountUpdate(financeId, finance.paidAmount);
+    function payReceipt(
+        address payerAddr,
+        address payeeAddr,
+        uint256 receiptId,
+        uint256 amount,
+        bool isFinance
+    ) public {
+        _payReceipt(senderAddr, payeeAddr, isFinance, receiptId, amount);
     }
 }
