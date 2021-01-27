@@ -4,6 +4,8 @@ A blockchain application based on FISCO-BCOS.
 
 现状：这个合约刚写完就push上来了，不能运行ing
 
+接口：所有是public的函数
+
 修改：
 - Bank 和 Company 合并成 Company，用cType区分：cType_normal, cType_core, cType_bank
 - Finance 直接用 Transaction 实现，但是函数实现分成了不同的接口，所以没太大影响
