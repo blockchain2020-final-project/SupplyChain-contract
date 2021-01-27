@@ -329,7 +329,7 @@ contract Supply0 {
         emit NewRegistration(addr, name, "Certifier");
     }
 
-    function findCertifier(address addr) public {
+    function findCertifier(address addr) private {
         Table t_certifier = openTable(CertifierTable);
         Entries entries =
             t_certifier.select(toString(addr), t_certifier.newCondition());
@@ -544,7 +544,7 @@ contract Supply0 {
         string coreCompanySignature,
         string info,
         uint256 isFinance
-    ) public {
+    ) private {
         Table t_receipt = openTable(ReceiptTable);
         Entry entry = t_receipt.newEntry();
         entry.set("payerAddr", payerAddr);
@@ -561,7 +561,7 @@ contract Supply0 {
         t_receipt.insert(toString(payeeAddr), entry);
     }
 
-    function findReceipt(string key, uint256 id) public {
+    function findReceipt(string key, uint256 id) private {
         Table t_receipt = openTable(ReceiptTable);
         Condition cond = t_receipt.newCondition();
         cond.EQ("id", id);
