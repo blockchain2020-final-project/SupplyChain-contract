@@ -294,6 +294,60 @@ contract Supply0 {
         return result;
     }
 
+    
+    function __getAllUnsettedReceipt(address addr, bool isFinance) 
+        private
+        returns (Receipt[] memory)
+    {
+        findCompany(addr, isFinance);
+
+        Table t_receipt = openTable(ReceiptTable);
+        Condition cond = t_receipt.newCondition();
+        cond.EQ("isFinance", isFinance);
+        cond.EQ("receiptStatus", ReceiptStatus_paying);
+        Entries entries = t_receipt.select(key, cond);
+
+        uint256 size = entries.size();
+        Receipt[] memory ret = new Receipt[](size);
+        
+        Entry entry;
+        for(uint256 i = 0; i < size; i ++){
+            entry = entries.get(i);
+            receipt.payeeAddr = entry.getAddress("payeeAddr");
+            receipt.payerAddr = entry.getAddress("payerAddr");
+            receipt.id = entry.getUInt("id");
+            receipt.paidAmount = entry.getUInt("paidAmount");
+            receipt.oriAmount = entry.getUInt("oriAmount");
+            receipt.createTime = entry.getUInt("createTime");
+            receipt.deadline = entry.getUInt("deadline");
+            receipt.receiptStatus = entry.getUInt("receiptStatus");
+            receipt.bankSignature = entry.getString("bankSignature");
+            receipt.coreCompanySignature = entry.getString("coreCompanySignature");
+            receipt.info = entry.getString("info");
+            receipt.isFinance = entry.getUInt("isFinance");
+
+            ret[i] = receipt;
+        }
+        return ret;
+    }
+
+    // 查询所有以某公司为收款方的未还清的交易账单
+    function getAllUnsettedReceipt(address addr) 
+        public
+        returns (Receipt[] memory)
+    {
+        return __getAllUnsettedReceipt(addr, false);
+    }
+
+    // 查询所有以某银行为收款方的未还清贷款
+    function getAllUnsettedFinance(address addr) 
+        public
+        returns (Receipt[] memory)
+    {
+        return __getAllUnsettedReceipt(addr, true);
+    }
+
+
     /** database insert and update */
 
     function openTable(string tableName) private view returns (Table) {
@@ -796,6 +850,12 @@ contract Supply0 {
 
         // payee
         findCompany(payeeAddr, isPayeeBank);
+        if(isPayeeBank == true){
+            require(
+                company.cashAmount >= amount,
+                "Bank doesn't have enough cash."
+            );
+        }
 
         if (tMode == TransactionMode_transfer) {
             findReceipt(payerAddr, oriReceiptId);
@@ -842,7 +902,7 @@ contract Supply0 {
         bool isPayerBank,
         uint256 transactionId,
         uint256 respond,
-        string memory tType
+        string memory tType,
     ) private {
         require(
             respond == 0 || respond == 1,
@@ -854,6 +914,15 @@ contract Supply0 {
         findTransaction(payeeAddr, transactionId);
         uint256 amount = transaction.amount;
         uint256 oriReceiptId = transaction.oriReceiptId;
+
+        findCompany(payeeAddr, isPayeeBank);
+        if(isPayeeBank == true){
+            require(
+                company.cashAmount >= amount,
+                "Bank doesn't have enough cash."
+            );
+        }
+        
 
         if (respond == 0) {
             updateTransactionUInt1(
@@ -886,18 +955,39 @@ contract Supply0 {
             // payer
             findCompany(payerAddr, isPayerBank);
             string memory payerName = company.name;
-            updateCompanyUInt1(
-                payerAddr,
-                "creditAmount",
-                company.creditAmount - amount
-            );
+            if (isPayeeBank == false) {
+                updateCompanyUInt1(
+                    payerAddr,
+                    "creditAmount",
+                    company.creditAmount - amount
+                );
+            } else {
+                updateCompanyUInt2(
+                    payerAddr,
+                    "creditAmount",
+                    company.creditAmount - amount,
+                    "cashAmount",
+                    company.cashAmount + amount
+                );
+            }
+
             // payee
             findCompany(payeeAddr, isPayeeBank);
-            updateCompanyUInt1(
-                payeeAddr,
-                "creditAmount",
-                company.creditAmount + amount
-            );
+            if (isPayeeBank == false) {
+                updateCompanyUInt1(
+                    payeeAddr,
+                    "creditAmount",
+                    company.creditAmount + amount
+                );
+            } else {
+                updateCompanyUInt2(
+                    payeeAddr,
+                    "creditAmount",
+                    company.creditAmount + amount,
+                    "cashAmount",
+                    company.cashAmount - amount
+                );
+            }
 
             uint256 receiptId = uint256(keccak256(now));
             insertReceipt(
