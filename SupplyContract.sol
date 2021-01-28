@@ -1070,9 +1070,9 @@ contract Supply0 {
     }
 
     function _transactionRespond(
-        address payeeAddr,
+        address payeeAddr, // hub
         bool isPayeeBank,
-        address payerAddr,
+        address payerAddr, // bank
         bool isPayerBank,
         int256 transactionId,
         uint256 respond,
@@ -1168,8 +1168,8 @@ contract Supply0 {
 
             int256 receiptId = int256(keccak256(abi.encodePacked(now)));
             insertReceipt(
+                payeeAddr,
                 newReceiptPayerAddr,
-                payerAddr,
                 receiptId,
                 0,
                 amount,
