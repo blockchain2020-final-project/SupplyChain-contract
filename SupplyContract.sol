@@ -41,12 +41,12 @@ contract Supply0 {
     struct Transaction {
         address payeeAddr; // seller
         address payerAddr; // buyer
-        uint256 id;
+        int256 id;
         uint256 amount;
         uint256 createTime;
         uint256 deadline;
         uint256 tMode;
-        uint256 oriReceiptId;
+        int256 oriReceiptId;
         uint256 requestStatus;
         string info;
         uint256 isFinance;
@@ -55,7 +55,7 @@ contract Supply0 {
     struct Receipt {
         address payeeAddr; // payeeAddr
         address payerAddr; // payerAddr
-        uint256 id;
+        int256 id;
         uint256 paidAmount;
         uint256 oriAmount;
         uint256 createTime;
@@ -128,7 +128,7 @@ contract Supply0 {
         string payeeName,
         address payerAddr, // 付款人
         string payerName,
-        uint256 id,
+        int256 id,
         uint256 amount,
         string rType
     );
@@ -137,7 +137,7 @@ contract Supply0 {
         string payeeName,
         address payerAddr, // 付款人
         string payerName,
-        uint256 id,
+        int256 id,
         uint256 amount,
         uint256 respond,
         string rType
@@ -145,14 +145,14 @@ contract Supply0 {
     event NewTransaction(
         address payeeAddr, // 收款人
         address payerAddr, // 付款人
-        uint256 id,
+        int256 id,
         uint256 amount,
         string tType
     );
     event NewReceipt(
         address payeeAddr, // 收款人
         address payerAddr, // 付款人
-        uint256 id,
+        int256 id,
         uint256 oriAmount,
         string tType
     );
@@ -161,7 +161,7 @@ contract Supply0 {
         string payeeName,
         address payerAddr, // 付款人
         string payerName,
-        uint256 id,
+        int256 id,
         uint256 paidAmount,
         uint256 oriAmount,
         string tType
@@ -375,12 +375,12 @@ contract Supply0 {
             entry = entries.get(int256(i));
             transaction.payeeAddr = entry.getAddress("payeeAddr");
             transaction.payerAddr = entry.getAddress("payerAddr");
-            transaction.id = entry.getUInt("id");
+            transaction.id = entry.getInt("id");
             transaction.amount = entry.getUInt("amount");
             transaction.createTime = entry.getUInt("createTime");
             transaction.deadline = entry.getUInt("deadline");
             transaction.tMode = entry.getUInt("tMode");
-            transaction.oriReceiptId = entry.getUInt("oriReceiptId");
+            transaction.oriReceiptId = entry.getInt("oriReceiptId");
             transaction.requestStatus = entry.getUInt("requestStatus");
             transaction.info = entry.getString("info");
             transaction.isFinance = entry.getUInt("isFinance");
@@ -431,7 +431,7 @@ contract Supply0 {
             entry = entries.get(int256(i));
             receipt.payeeAddr = entry.getAddress("payeeAddr");
             receipt.payerAddr = entry.getAddress("payerAddr");
-            receipt.id = entry.getUInt("id");
+            receipt.id = entry.getInt("id");
             receipt.paidAmount = entry.getUInt("paidAmount");
             receipt.oriAmount = entry.getUInt("oriAmount");
             receipt.createTime = entry.getUInt("createTime");
@@ -665,20 +665,20 @@ contract Supply0 {
 
     /***** handle transaction *****/
 
-    function getTTypeString(bool isFinance) private returns (string) {
-        if (isFinance == true) return "Finance";
+    function getTTypeString(uint256 isFinance) private returns (string) {
+        if (isFinance == 1) return "Finance";
         return "Transaction";
     }
 
     function insertTransaction(
         address payeeAddr,
         address payerAddr,
-        uint256 id,
+        int256 id,
         uint256 amount,
         uint256 createTime,
         uint256 deadline,
         uint256 tMode,
-        uint256 oriReceiptId,
+        int256 oriReceiptId,
         uint256 requestStatus,
         string info,
         uint256 isFinance
@@ -705,10 +705,10 @@ contract Supply0 {
         );
     }
 
-    function findTransaction(string key, uint256 id) private {
+    function findTransaction(string key, int256 id) private {
         Table t_transaction = openTable(TransactionTable);
         Condition cond = t_transaction.newCondition();
-        cond.EQ("id", int256(id));
+        cond.EQ("id", id);
         Entries entries = t_transaction.select(key, cond);
         require(entries.size() > 0, "Transaction should exist.");
         require(entries.size() < 2, "Transaction should be unique.");
@@ -720,7 +720,7 @@ contract Supply0 {
         transaction.createTime = entry.getUInt("createTime");
         transaction.deadline = entry.getUInt("deadline");
         transaction.tMode = entry.getUInt("tMode");
-        transaction.oriReceiptId = entry.getUInt("oriReceiptId");
+        transaction.oriReceiptId = entry.getInt("oriReceiptId");
         transaction.requestStatus = entry.getUInt("requestStatus");
         transaction.info = entry.getString("info");
         transaction.isFinance = entry.getUInt("isFinance");
@@ -728,13 +728,13 @@ contract Supply0 {
 
     function updateTransactionUInt1(
         string key,
-        uint256 id,
+        int256 id,
         string field,
         uint256 value
     ) private {
         Table t_transaction = openTable(TransactionTable);
         Condition cond = t_transaction.newCondition();
-        cond.EQ("id", int256(id));
+        cond.EQ("id", id);
         Entries entries = t_transaction.select(key, cond);
         require(entries.size() > 0, "Transaction should exist.");
         require(entries.size() < 2, "Transaction should be unique.");
@@ -748,7 +748,7 @@ contract Supply0 {
     function insertReceipt(
         address payeeAddr,
         address payerAddr,
-        uint256 id,
+        int256 id,
         uint256 paidAmount,
         uint256 oriAmount,
         uint256 createTime,
@@ -784,17 +784,17 @@ contract Supply0 {
         );
     }
 
-    function findReceipt(string key, uint256 id) private {
+    function findReceipt(string key, int256 id) private {
         Table t_receipt = openTable(ReceiptTable);
         Condition cond = t_receipt.newCondition();
-        cond.EQ("id", int256(id));
+        cond.EQ("id", id);
         Entries entries = t_receipt.select(key, cond);
         require(entries.size() > 0, "Receipt should exist.");
         require(entries.size() < 2, "Receipt should be unique.");
         Entry entry = entries.get(0);
         receipt.payeeAddr = entry.getAddress("payeeAddr");
         receipt.payerAddr = entry.getAddress("payerAddr");
-        receipt.id = entry.getUInt("id");
+        receipt.id = entry.getInt("id");
         receipt.paidAmount = entry.getUInt("paidAmount");
         receipt.oriAmount = entry.getUInt("oriAmount");
         receipt.createTime = entry.getUInt("createTime");
@@ -808,13 +808,13 @@ contract Supply0 {
 
     function updateReceiptUInt1(
         string key,
-        uint256 id,
+        int256 id,
         string field,
         uint256 value
     ) private {
         Table t_receipt = openTable(ReceiptTable);
         Condition cond = t_receipt.newCondition();
-        cond.EQ("id", int256(id));
+        cond.EQ("id", id);
         Entries entries = t_receipt.select(key, cond);
         require(entries.size() > 0, "Receipt should exist.");
         require(entries.size() < 2, "Receipt should be unique.");
@@ -998,7 +998,7 @@ contract Supply0 {
         uint256 amount,
         uint256 deadline,
         uint256 tMode,
-        uint256 oriReceiptId,
+        int256 oriReceiptId,
         string memory info,
         string memory tType
     ) private {
@@ -1038,7 +1038,7 @@ contract Supply0 {
             oriReceiptId = 0;
         }
 
-        uint256 transactionId = uint256(keccak256(abi.encodePacked(now)));
+        int256 transactionId = int256(keccak256(abi.encodePacked(now)));
         insertTransaction(
             payeeAddr,
             payerAddr,
@@ -1068,7 +1068,7 @@ contract Supply0 {
         bool isPayeeBank,
         address payerAddr,
         bool isPayerBank,
-        uint256 transactionId,
+        int256 transactionId,
         uint256 respond,
         string memory tType
     ) private {
@@ -1079,7 +1079,7 @@ contract Supply0 {
 
         findTransaction(toString(payeeAddr), transactionId);
         uint256 amount = transaction.amount;
-        uint256 oriReceiptId = transaction.oriReceiptId;
+        int256 oriReceiptId = transaction.oriReceiptId;
 
         findCompany(payeeAddr, isPayeeBank);
         if (isPayeeBank == true) {
@@ -1154,7 +1154,7 @@ contract Supply0 {
                 );
             }
 
-            uint256 receiptId = uint256(keccak256(abi.encodePacked(now)));
+            int256 receiptId = int256(keccak256(abi.encodePacked(now)));
             insertReceipt(
                 payeeAddr,
                 payerAddr,
@@ -1214,7 +1214,7 @@ contract Supply0 {
         address payeeAddr,
         uint256 amount,
         uint256 deadline,
-        uint256 oriReceiptId,
+        int256 oriReceiptId,
         string memory info
     ) public {
         _transactionRequest(
@@ -1236,7 +1236,7 @@ contract Supply0 {
         address payeeAddr,
         uint256 amount,
         uint256 deadline,
-        uint256 oriReceiptId,
+        int256 oriReceiptId,
         string memory info
     ) public {
         _transactionRequest(
@@ -1256,7 +1256,7 @@ contract Supply0 {
     function transactionRespond(
         address senderAddr,
         address payerAddr,
-        uint256 transactionId,
+        int256 transactionId,
         uint256 respond
     ) public {
         _transactionRespond(
@@ -1273,7 +1273,7 @@ contract Supply0 {
     function financeRespond(
         address senderAddr,
         address payerAddr,
-        uint256 financeId,
+        int256 financeId,
         uint256 respond
     ) public {
         _transactionRespond(
@@ -1323,7 +1323,7 @@ contract Supply0 {
         address payerAddr,
         address payeeAddr,
         bool isPayeeBank,
-        uint256 receiptId,
+        int256 receiptId,
         uint256 amount
     ) private {
         findCompany(payerAddr, false);
@@ -1366,7 +1366,7 @@ contract Supply0 {
     function payReceipt(
         address senderAddr,
         address payeeAddr,
-        uint256 receiptId,
+        int256 receiptId,
         uint256 amount,
         bool isFinance
     ) public {
