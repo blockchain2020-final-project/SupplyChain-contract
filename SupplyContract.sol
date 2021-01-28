@@ -186,7 +186,7 @@ contract Supply0 {
         return string(_newValue);
     }
 
-    function toString(address x) public pure returns (string) {
+    function toString(address x) private pure returns (string) {
         bytes32 value = bytes32(uint256(x));
         bytes memory alphabet = "0123456789abcdef";
 
