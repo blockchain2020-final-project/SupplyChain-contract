@@ -308,7 +308,7 @@ contract Supply0 {
         string memory result = "";
 
         if (addr == admin.addr) {
-            result = concat(result, "Administrator");
+            result = concat(result, "Administrator ");
         }
         if (isCTypeBank[addr] == true) {
             result = concat(result, "Bank ");
