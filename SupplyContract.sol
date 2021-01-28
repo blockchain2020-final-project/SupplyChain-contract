@@ -279,7 +279,8 @@ contract Supply0 {
             } else if (flag == 3 && isCTypeBank[addrs[i]]) {
                 findCompany(addrs[i], true);
             }
-            ret[cnt++] = company;
+            Company storage tmp = company;
+            ret[cnt++] = tmp;
         }
         return ret;
     }
