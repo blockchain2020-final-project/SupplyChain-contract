@@ -158,9 +158,7 @@ contract Supply0 {
     );
     event UpdateReceipt(
         address payeeAddr, // 收款人
-        string payeeName,
         address payerAddr, // 付款人
-        string payerName,
         int256 id,
         uint256 paidAmount,
         uint256 oriAmount,
@@ -211,10 +209,10 @@ contract Supply0 {
     }
 
     constructor(address adminAddr, string suffix) public {
-        require(
-            msg.sender == adminAddr,
-            "Only administrator can deploy this contract."
-        );
+        // require(
+        //     msg.sender == adminAddr,
+        //     "Only administrator can deploy this contract."
+        // );
         admin.addr = adminAddr;
         addrs[0] = adminAddr;
         isAddrAppeared[adminAddr] = true;
@@ -824,6 +822,14 @@ contract Supply0 {
             entry.set("receiptStatus", ReceiptStatus_settled);
         }
         t_receipt.update(key, entry, cond);
+        emit UpdateReceipt(
+            entry.getAddress("payeeAddr"),
+            entry.getAddress("payerAddr"),
+            id,
+            entry.getUInt("paidAmount"),
+            entry.getUInt("oriAmount"),
+            getTTypeString(entry.getUInt("isFinance"))
+        );
     }
 
     /***** register *****/
@@ -1103,6 +1109,8 @@ contract Supply0 {
                 "Payer doesn't has enough credit points."
             );
 
+            address newReceiptPayerAddr;
+            // address newReceiptPayeeAddr;
             if (transaction.tMode == TransactionMode_transfer) {
                 // split receipt
                 findReceipt(toString(payerAddr), oriReceiptId);
@@ -1116,6 +1124,10 @@ contract Supply0 {
                     "oriAmount",
                     receipt.oriAmount - amount
                 );
+                newReceiptPayerAddr = receipt.payerAddr;
+            } else {
+                // new receipt
+                newReceiptPayerAddr = payerAddr;
             }
             // payer
             findCompany(payerAddr, isPayerBank);
@@ -1156,7 +1168,7 @@ contract Supply0 {
 
             int256 receiptId = int256(keccak256(abi.encodePacked(now)));
             insertReceipt(
-                payeeAddr,
+                newReceiptPayerAddr,
                 payerAddr,
                 receiptId,
                 0,
@@ -1287,36 +1299,43 @@ contract Supply0 {
         );
     }
 
+    /** admin才能同意bank存钱；bank才能同意company存钱 */
     function depositCash(
-        address senderAddr, // bankAddr
-        address companyAddr,
+        address senderAddr,
+        address addr,
         uint256 amount
     ) public {
-        findCompany(senderAddr, true);
-        findCompany(companyAddr, false);
-        updateCompanyUInt1(
-            companyAddr,
-            "cashAmount",
-            company.cashAmount + amount
-        );
+        if (isCTypeBank[addr] == true) {
+            require(
+                senderAddr == admin.addr,
+                "Only admin can deposit cash to bank."
+            );
+            findCompany(addr, true); // bank
+        } else {
+            findCompany(senderAddr, true); // bank
+            findCompany(addr, false); // company
+        }
+        updateCompanyUInt1(addr, "cashAmount", company.cashAmount + amount);
     }
 
+    /** admin才能同意bank取钱；bank才能同意company取钱 */
     function withdrawCash(
-        address senderAddr, // bankAddr
-        address companyAddr,
+        address senderAddr, // admin or bank
+        address addr, // bank or company
         uint256 amount
     ) public {
-        findCompany(senderAddr, true);
-        findCompany(companyAddr, false);
-        require(
-            company.cashAmount >= amount,
-            "Company doesn't have enough cash."
-        );
-        updateCompanyUInt1(
-            companyAddr,
-            "cashAmount",
-            company.cashAmount - amount
-        );
+        if (isCTypeBank[addr] == true) {
+            require(
+                senderAddr == admin.addr,
+                "Only admin can deposit cash to bank."
+            );
+            findCompany(addr, true); // bank
+        } else {
+            findCompany(senderAddr, true); // bank
+            findCompany(addr, false); // company
+        }
+        require(company.cashAmount >= amount, "Doesn't have enough cash.");
+        updateCompanyUInt1(addr, "cashAmount", company.cashAmount - amount);
     }
 
     function __payReceipt(
