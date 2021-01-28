@@ -496,6 +496,9 @@ contract Supply0 {
 
     function insertCertifier(address addr, string name) private {
         Table t_certifier = openTable(CertifierTable);
+        Entries entries =
+            t_certifier.select(toString(addr), t_certifier.newCondition());
+        require(entries.size() == 0, "Certifier already exists.");
         Entry entry = t_certifier.newEntry();
         entry.set("name", name);
         t_certifier.insert(toString(addr), entry);
@@ -529,6 +532,9 @@ contract Supply0 {
         uint256 cashAmount
     ) private {
         Table t_company = openTable(CompanyTable);
+        Entries entries =
+            t_company.select(toString(addr), t_company.newCondition());
+        require(entries.size() == 0, "Company or bank already exists.");
         Entry entry = t_company.newEntry();
         entry.set("name", name);
         entry.set("cType", cType);
