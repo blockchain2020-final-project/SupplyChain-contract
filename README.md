@@ -2,12 +2,71 @@
 
 A blockchain application based on FISCO-BCOS.
 
-现状：这个合约刚写完就push上来了，不能运行ing
+interface:
 
-接口：所有是public的函数
+```solidity
+    // get all
+    function getAllCertifier() public returns (address[] memory) 
+    function getAllCompany() public returns (address[] memory) 
+    function getAllNormalCompany() public returns (address[] memory) 
+    function getAllCoreCompany() public returns (address[] memory) 
+    function getAllBank() public returns (address[] memory) 
+    // 获取某个地址的所有角色
+    function getAllRole(address addr) public view returns (string) 
+    
+    // get 
+    function getAdmin(address addr) public view returns (Administrator memory) 
+    function getCertifier(address addr) public returns (Certifier memory) 
+    function getBank(address addr) public returns (Company memory) 
+    function getCompany(address addr) public returns (Company memory) 
+    function getNormalCompany(address addr) public returns (Company memory) 
+    function getCoreCompany(address addr) public returns (Company memory) 
+    function getTransaction(address payeeAddr, int256 id)
+    function getReceipt(address payeeAddr, int256 id)
 
-修改：
-- Bank 和 Company 合并成 Company，用cType区分：cType_normal, cType_core, cType_bank
-- Finance 直接用 Transaction 实现，但是函数实现分成了不同的接口，所以没太大影响
-- Transaction 和 Receipt 加了 info、isFinance
-- 所有的buyer、debtee用payer（付款人）代替， 所有的seller、debtor用payee（收款人）代替
+    // 查询某公司为收款方的所有交易(即该公司为交易请求的接收者)
+    function getAllTransactionRequest(address addr)
+    // 查询某银行为收款方的所有贷款(即该银行为贷款请求的接收者
+    function getAllFinanceRequest(address addr)
+
+    // 查询所有以某公司为收款方的未还清的交易账单
+    function getAllUnsettedReceipt(address addr)
+    // 查询所有以某银行为收款方的未还清贷款
+    function getAllUnsettedFinance(address addr)
+
+    // 查询所有以某公司为付款方的未还清的交易账单
+    function getAllUnpaidReceipt(address addr)
+    // 查询所有以某公司为付款方的未还清贷款
+    function getAllUnpaidFinance(address addr)
+
+    // 查询管理员分发的credit总数
+    function getAdminOutCredit() public view returns (uint256) 
+    // 查询管理员分给某一银行的credit总数
+    function getAdminOutCredit2Bank(address bankAddr)
+
+    // 注册
+    function registerBank(
+    function registerCertifier(
+    function registerCompany(
+    function registerCoreCompany(address senderAddr, address companyAddr)
+
+    // admin将credit分发给bank
+    function creditDistributionToBank(
+    // admin强制要求bank返回credit
+    function creditReturnFromBank(
+    // bank将credit分发给core company
+    function creditDistributionToCore(
+    // bank强制要求core company返回credit
+    function creditReturnFromCore(
+    
+    // 交易 和 贷款 请求、响应
+    function transactionRequestWithNewReceipt(
+    function transactionRequestWithOldReceipt(
+    function financeRequest(
+    function transactionRespond(
+    function financeRespond(
+
+    // 支付
+    function depositCash( // 存钱
+    function withdrawCash( // 取钱
+    function payReceipt( // 还账单
