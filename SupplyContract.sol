@@ -144,18 +144,14 @@ contract Supply0 {
     );
     event NewTransaction(
         address payeeAddr, // 收款人
-        string payeeName,
         address payerAddr, // 付款人
-        string payerName,
         uint256 id,
         uint256 amount,
         string tType
     );
     event NewReceipt(
         address payeeAddr, // 收款人
-        string payeeName,
         address payerAddr, // 付款人
-        string payerName,
         uint256 id,
         uint256 oriAmount,
         string tType
@@ -669,6 +665,11 @@ contract Supply0 {
 
     /***** handle transaction *****/
 
+    function getTTypeString(bool isFinance) private returns (string) {
+        if (isFinance == true) return "Finance";
+        return "Transaction";
+    }
+
     function insertTransaction(
         address payeeAddr,
         address payerAddr,
@@ -695,6 +696,13 @@ contract Supply0 {
         entry.set("info", info);
         entry.set("isFinance", isFinance);
         t_transaction.insert(toString(payeeAddr), entry);
+        emit NewTransaction(
+            payeeAddr,
+            payerAddr,
+            id,
+            amount,
+            getTTypeString(isFinance)
+        );
     }
 
     function findTransaction(string key, uint256 id) private {
@@ -766,6 +774,14 @@ contract Supply0 {
         entry.set("isFinance", isFinance);
         string memory key = toString(payeeAddr);
         t_receipt.insert(key, entry);
+
+        emit NewReceipt(
+            payeeAddr,
+            payerAddr,
+            id,
+            oriAmount,
+            getTTypeString(isFinance)
+        );
     }
 
     function findReceipt(string key, uint256 id) private {
