@@ -90,6 +90,7 @@ contract Supply0 {
     mapping(address => bool) isCTypeCore;
     mapping(address => bool) isCTypeBank;
     mapping(address => uint256) outCreditPerBank;
+    mapping(address => uint256) unPaidReceiptCount;
 
     /** Constants */
     uint256 cType_normal = 0; // company
@@ -559,6 +560,57 @@ contract Supply0 {
         return __getAllUnsettedReceipt(addr, true);
     }
 
+    function __getAllUnpaidReceipt(address addr, bool isFinance)
+        private
+        returns (address[] memory, int256[] memory)
+    {
+        findCompany(addr, false);
+
+        Table t_receipt = openTable(ReceiptTable);
+        Condition cond = t_receipt.newCondition();
+        if (isFinance == true) {
+            cond.EQ("isFinance", 1);
+        } else {
+            cond.EQ("isFinance", 0);
+        }
+        cond.EQ("receiptStatus", int256(ReceiptStatus_paying));
+
+        Entries entries;
+        Entry entry;
+        uint256 size = unPaidReceiptCount[addr];
+        uint256 cnt = 0;
+
+        int256[] memory ids = new int256[](size);
+        address[] memory payeeAddrs = new address[](size);
+        for (uint256 i = 0; i < addrCount; i++) {
+            entries = t_receipt.select(toString(addrs[i]), cond);
+            for (uint256 j = 0; j < uint256(entries.size()); j++) {
+                entry = entries.get(int256(j));
+                ids[cnt] = entry.getInt("id");
+                payeeAddrs[cnt] = entry.getAddress("payeeAddr");
+                cnt += 1;
+            }
+        }
+
+        return (payeeAddrs, ids);
+    }
+
+    // 查询所有以某公司为付款方的未还清的交易账单
+    function getAllUnpaidReceipt(address addr)
+        public
+        returns (address[] memory, int256[] memory)
+    {
+        return __getAllUnpaidReceipt(addr, false);
+    }
+
+    // 查询所有以某公司为付款方的未还清贷款
+    function getAllUnpaidFinance(address addr)
+        public
+        returns (address[] memory, int256[] memory)
+    {
+        return __getAllUnpaidReceipt(addr, true);
+    }
+
     /** database insert and update */
 
     function openTable(string tableName) private view returns (Table) {
@@ -869,6 +921,8 @@ contract Supply0 {
         string memory key = toString(payeeAddr);
         t_receipt.insert(key, entry);
 
+        unPaidReceiptCount[payerAddr]++;
+
         emit NewReceipt(
             payeeAddr,
             payerAddr,
@@ -916,6 +970,7 @@ contract Supply0 {
         entry.set(field, value);
         if (equal(field, "paidAmount") && value >= entry.getUInt("oriAmount")) {
             entry.set("receiptStatus", ReceiptStatus_settled);
+            unPaidReceiptCount[entry.getAddress("payerAddr")]--;
         }
         t_receipt.update(key, entry, cond);
         emit UpdateReceipt(
