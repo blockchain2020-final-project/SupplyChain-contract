@@ -1,4 +1,5 @@
 pragma solidity ^0.4.25;
+pragma experimental ABIEncoderV2;
 
 import "./Table.sol";
 
@@ -22,7 +23,6 @@ contract Supply0 {
     struct Administrator {
         address addr;
         uint256 outCredit;
-        mapping(address => uint256) outCreditPerBank;
     }
 
     struct Certifier {
@@ -72,17 +72,24 @@ contract Supply0 {
     Company company;
     Transaction transaction;
     Receipt receipt;
+
     string CertifierTable;
     string CompanyTable;
     string TransactionTable;
     string ReceiptTable;
 
     uint256 addrCount;
+    uint256 certCount;
+    uint256 normalCount;
+    uint256 coreCount;
+    uint256 bankCount;
     mapping(uint256 => address) addrs;
+    mapping(address => bool) isAddrAppeared;
     mapping(address => bool) isCertifier;
-    mapping(address => bool) isNormalCompany;
-    mapping(address => bool) isCoreCompany;
-    mapping(address => bool) isBank;
+    mapping(address => bool) isCTypeNormal;
+    mapping(address => bool) isCTypeCore;
+    mapping(address => bool) isCTypeBank;
+    mapping(address => uint256) outCreditPerBank;
 
     /** Constants */
     uint256 cType_normal = 0; // company
@@ -197,15 +204,29 @@ contract Supply0 {
         return string(str);
     }
 
+    function equal(string a, string b) private pure returns (bool) {
+        if (bytes(a).length != bytes(b).length) {
+            return false;
+        } else {
+            return keccak256(bytes(a)) == keccak256(bytes(b));
+        }
+    }
+
     constructor(address adminAddr, string suffix) public {
         require(
             msg.sender == adminAddr,
             "Only administrator can deploy this contract."
         );
         admin.addr = adminAddr;
-
         addrs[0] = adminAddr;
+        isAddrAppeared[adminAddr] = true;
+        emit NewRegistration(adminAddr, "admin", "Administrator");
+
         addrCount = 1;
+        certCount = 0;
+        normalCount = 0;
+        coreCount = 0;
+        bankCount = 0;
 
         CertifierTable = concat("Certifier", suffix);
         CompanyTable = concat("Company", suffix);
@@ -233,69 +254,162 @@ contract Supply0 {
 
     /** query  */
 
-    function _getAll(uint256 queryType) private returns (string) {
-        string memory result = "";
-        string memory next = "";
+    function getAllCertifier() public returns (Certifier[] memory) {
+        Certifier[] memory ret = new Certifier[](certCount);
+        uint256 cnt = 0;
         for (uint256 i = 0; i < addrCount; i++) {
-            if (
-                (queryType == 0 && isCertifier[addrs[i]]) ||
-                (queryType == 2 &&
-                    (isNormalCompany[addrs[i]] || isCoreCompany[addrs[i]])) ||
-                (queryType == 2 && isNormalCompany[addrs[i]]) ||
-                (queryType == 3 && isCoreCompany[addrs[i]]) ||
-                (queryType == 4 && isBank[addrs[i]])
-            ) {
-                next = concat(toString(addrs[i]), " ");
-                result = concat(result, next);
+            if (isCertifier[addrs[i]]) {
+                findCertifier(addrs[i]);
+                ret[cnt++] = certifier;
             }
         }
-        return result;
+        return ret;
     }
 
-    function getAllCertifier() public returns (string) {
-        return _getAll(0);
+    function __getAllCompany(uint256 flag, uint256 count)
+        private
+        returns (Company[] memory)
+    {
+        Company[] memory ret = new Company[](count);
+        uint256 cnt = 0;
+        for (uint256 i = 0; i < addrCount; i++) {
+            if (
+                (flag == 0 &&
+                    (isCTypeNormal[addrs[i]] || isCTypeCore[addrs[i]])) ||
+                (flag == 1 && isCTypeNormal[addrs[i]]) ||
+                (flag == 2 && isCTypeCore[addrs[i]])
+            ) {
+                findCompany(addrs[i], false);
+            } else if (flag == 3 && isCTypeBank[addrs[i]]) {
+                findCompany(addrs[i], true);
+            }
+            ret[cnt++] = company;
+        }
+        return ret;
     }
 
-    function getAllCompany() public returns (string) {
-        return _getAll(1);
+    function getAllCompany() public returns (Company[] memory) {
+        return __getAllCompany(0, normalCount + coreCount);
     }
 
-    function getAllNormalCompany() public returns (string) {
-        return _getAll(2);
+    function getAllNormalCompany() public returns (Company[] memory) {
+        return __getAllCompany(1, normalCount);
     }
 
-    function getAllCoreCompany() public returns (string) {
-        return _getAll(3);
+    function getAllCoreCompany() public returns (Company[] memory) {
+        return __getAllCompany(2, coreCount);
     }
 
-    function getAllBank() public returns (string) {
-        return _getAll(4);
+    function getAllBank() public returns (Company[] memory) {
+        return __getAllCompany(3, bankCount);
     }
 
-    function getAllRole(address addr) public returns (string) {
+    function getAllRole(address addr) public view returns (string) {
         string memory result = "";
-        string memory next = "";
 
         if (addr == admin.addr) {
             result = concat(result, "Administrator");
         }
-        if (isBank[addr] == true) {
+        if (isCTypeBank[addr] == true) {
             result = concat(result, "Bank ");
         }
         if (isCertifier[addr] == true) {
             result = concat(result, "Certifier ");
         }
-        if (isNormalCompany[addr] == true) {
+        if (isCTypeNormal[addr] == true) {
             result = concat(result, "Company(Normal) ");
         }
-        if (isCoreCompany[addr] == true) {
+        if (isCTypeCore[addr] == true) {
             result = concat(result, "Company(Core) ");
         }
         return result;
     }
 
-    
-    function __getAllUnsettedReceipt(address addr, bool isFinance) 
+    function getAdmin(address addr) public view returns (Administrator memory) {
+        require(addr == admin.addr, "The address isn't admin.");
+        return admin;
+    }
+
+    function getCertifier(address addr) public returns (Certifier memory) {
+        findCertifier(addr);
+        return certifier;
+    }
+
+    function getBank(address addr) public returns (Company memory) {
+        findCompany(addr, true);
+        return company;
+    }
+
+    function getCompany(address addr) public returns (Company memory) {
+        findCompany(addr, false);
+        return company;
+    }
+
+    function getNormalCompany(address addr) public returns (Company memory) {
+        findCompany(addr, false);
+        require(
+            company.cType == cType_normal,
+            "The address is not normal company."
+        );
+        return company;
+    }
+
+    function getCoreCompany(address addr) public returns (Company memory) {
+        findCompany(addr, false);
+        require(
+            company.cType == cType_core,
+            "The address is not core company."
+        );
+        return company;
+    }
+
+    function __getAllTransactionRequest(address addr)
+        private
+        returns (Transaction[] memory)
+    {
+        Table t_transaction = openTable(TransactionTable);
+        Condition cond = t_transaction.newCondition();
+        Entries entries = t_transaction.select(toString(addr), cond);
+        uint256 size = uint256(entries.size());
+        Transaction[] memory ret = new Transaction[](size);
+        Entry entry;
+        for (uint256 i = 0; i < size; i++) {
+            entry = entries.get(int256(i));
+            transaction.payeeAddr = entry.getAddress("payeeAddr");
+            transaction.payerAddr = entry.getAddress("payerAddr");
+            transaction.id = entry.getUInt("id");
+            transaction.amount = entry.getUInt("amount");
+            transaction.createTime = entry.getUInt("createTime");
+            transaction.deadline = entry.getUInt("deadline");
+            transaction.tMode = entry.getUInt("tMode");
+            transaction.oriReceiptId = entry.getUInt("oriReceiptId");
+            transaction.requestStatus = entry.getUInt("requestStatus");
+            transaction.info = entry.getString("info");
+            transaction.isFinance = entry.getUInt("isFinance");
+            ret[i] = transaction;
+        }
+        return ret;
+    }
+
+    // 查询某公司为收款方的所有交易(即该公司为交易请求的接收者)
+    function getAllTransactionRequest(address addr)
+        public
+        returns (Transaction[] memory)
+    {
+        findCompany(addr, false);
+        return __getAllTransactionRequest(addr);
+    }
+
+    // 查询某银行为收款方的所有贷款(即该银行为贷款请求的接收者)
+    function getAllFinanceRequest(address addr)
+        public
+        returns (Transaction[] memory)
+    {
+        findCompany(addr, true);
+        return __getAllTransactionRequest(addr);
+    }
+
+    function __getAllUnsettedReceipt(address addr, bool isFinance)
         private
         returns (Receipt[] memory)
     {
@@ -303,16 +417,20 @@ contract Supply0 {
 
         Table t_receipt = openTable(ReceiptTable);
         Condition cond = t_receipt.newCondition();
-        cond.EQ("isFinance", isFinance);
-        cond.EQ("receiptStatus", ReceiptStatus_paying);
-        Entries entries = t_receipt.select(key, cond);
+        if (isFinance == true) {
+            cond.EQ("isFinance", 1);
+        } else {
+            cond.EQ("isFinance", 0);
+        }
+        cond.EQ("receiptStatus", int256(ReceiptStatus_paying));
+        Entries entries = t_receipt.select(toString(addr), cond);
 
-        uint256 size = entries.size();
+        uint256 size = uint256(entries.size());
         Receipt[] memory ret = new Receipt[](size);
-        
+
         Entry entry;
-        for(uint256 i = 0; i < size; i ++){
-            entry = entries.get(i);
+        for (uint256 i = 0; i < size; i++) {
+            entry = entries.get(int256(i));
             receipt.payeeAddr = entry.getAddress("payeeAddr");
             receipt.payerAddr = entry.getAddress("payerAddr");
             receipt.id = entry.getUInt("id");
@@ -322,7 +440,9 @@ contract Supply0 {
             receipt.deadline = entry.getUInt("deadline");
             receipt.receiptStatus = entry.getUInt("receiptStatus");
             receipt.bankSignature = entry.getString("bankSignature");
-            receipt.coreCompanySignature = entry.getString("coreCompanySignature");
+            receipt.coreCompanySignature = entry.getString(
+                "coreCompanySignature"
+            );
             receipt.info = entry.getString("info");
             receipt.isFinance = entry.getUInt("isFinance");
 
@@ -332,7 +452,7 @@ contract Supply0 {
     }
 
     // 查询所有以某公司为收款方的未还清的交易账单
-    function getAllUnsettedReceipt(address addr) 
+    function getAllUnsettedReceipt(address addr)
         public
         returns (Receipt[] memory)
     {
@@ -340,13 +460,12 @@ contract Supply0 {
     }
 
     // 查询所有以某银行为收款方的未还清贷款
-    function getAllUnsettedFinance(address addr) 
+    function getAllUnsettedFinance(address addr)
         public
         returns (Receipt[] memory)
     {
         return __getAllUnsettedReceipt(addr, true);
     }
-
 
     /** database insert and update */
 
@@ -355,9 +474,9 @@ contract Supply0 {
         return tf.openTable(tableName);
     }
 
-    function getAdmin() public returns (address) {
-        return admin.addr;
-    }
+    // function getAdmin() public view returns (address) {
+    //     return admin.addr;
+    // }
 
     /** 查询管理员分发的credit总数 */
     function queryAdminOutCredit() public view returns (uint256) {
@@ -370,7 +489,7 @@ contract Supply0 {
         view
         returns (uint256)
     {
-        return admin.outCreditPerBank[bankAddr];
+        return outCreditPerBank[bankAddr];
     }
 
     /***** handle certifier *****/
@@ -380,6 +499,12 @@ contract Supply0 {
         Entry entry = t_certifier.newEntry();
         entry.set("name", name);
         t_certifier.insert(toString(addr), entry);
+        if (isAddrAppeared[addr] == false) {
+            addrs[addrCount++] = addr;
+            isAddrAppeared[addr] = true;
+        }
+        isCertifier[addr] = true;
+        certCount++;
         emit NewRegistration(addr, name, "Certifier");
     }
 
@@ -387,7 +512,6 @@ contract Supply0 {
         Table t_certifier = openTable(CertifierTable);
         Entries entries =
             t_certifier.select(toString(addr), t_certifier.newCondition());
-        emit find_debug(CertifierTable, addr, entries.size());
         require(entries.size() > 0, "Certifier should exist.");
         require(entries.size() < 2, "Certifier should be unique.");
         Entry entry = entries.get(0);
@@ -412,10 +536,20 @@ contract Supply0 {
         entry.set("cashAmount", cashAmount);
         t_company.insert(toString(addr), entry);
         string memory rType;
+
+        if (isAddrAppeared[addr] == false) {
+            addrs[addrCount++] = addr;
+            isAddrAppeared[addr] = true;
+        }
+
         if (cType == cType_bank) {
             rType = "Bank";
+            isCTypeBank[addr] = true;
+            bankCount++;
         } else {
             rType = "Company(Normal)";
+            isCTypeNormal[addr] = true;
+            normalCount++;
         }
         emit NewRegistration(addr, name, rType);
     }
@@ -434,7 +568,11 @@ contract Supply0 {
         entry.set(field, value);
         t_company.update(toString(addr), entry, t_company.newCondition());
 
-        if (field == "cType" && value == cType_core) {
+        if (equal(field, "cType") && value == cType_core) {
+            isCTypeNormal[addr] = false;
+            normalCount--;
+            isCTypeCore[addr] = true;
+            coreCount++;
             emit NewRegistration(
                 addr,
                 entry.getString("name"),
@@ -482,12 +620,12 @@ contract Supply0 {
         Table t_company = openTable(CompanyTable);
         Condition cond = t_company.newCondition();
         if (isBank == true) {
-            cond.EQ(cType_bank);
+            cond.EQ("cType", int256(cType_bank));
         } else {
-            cond.NE(cType_bank);
+            cond.NE("cType", int256(cType_bank));
         }
         Entries entries = t_company.select(toString(addr), cond);
-        emit find_debug(CompanyTable, addr, entries.size());
+        // emit find_debug(CompanyTable, addr, entries.size());
         require(entries.size() > 0, "Company or bank should exist.");
         require(entries.size() < 2, "Company or bank should be unique.");
         Entry entry = entries.get(0);
@@ -498,22 +636,22 @@ contract Supply0 {
         company.cashAmount = entry.getUInt("cashAmount");
     }
 
-    /** 查询公司或银行的type, credit余额, cash余额 */
-    function queryCompanyField(address addr, string field)
-        public
-        returns (uint256)
-    {
-        require(
-            field == "cType" ||
-                field == "creditAmount" ||
-                field == "cashAmount",
-            "Field should be cType, creditAmount or cashAmount."
-        );
-        findCompany(addr);
-        if (field == "cType") return company.cType;
-        if (field == "creditAmount") return company.creditAmount;
-        return company.cashAmount;
-    }
+    /** 查询公司的type, credit余额, cash余额 */
+    // function queryCompanyField(address addr, string field)
+    //     public
+    //     returns (uint256)
+    // {
+    //     require(
+    //         (equal(field, "cType") ||
+    //             equal(field, "creditAmount") ||
+    //             equal(field, "cashAmount")),
+    //         "Field should be cType, creditAmount or cashAmount."
+    //     );
+    //     findCompany(addr, false);
+    //     if (field == "cType") return company.cType;
+    //     if (field == "creditAmount") return company.creditAmount;
+    //     return company.cashAmount;
+    // }
 
     /***** handle transaction *****/
 
@@ -525,7 +663,7 @@ contract Supply0 {
         uint256 createTime,
         uint256 deadline,
         uint256 tMode,
-        string oriReceiptId,
+        uint256 oriReceiptId,
         uint256 requestStatus,
         string info,
         uint256 isFinance
@@ -548,7 +686,7 @@ contract Supply0 {
     function findTransaction(string key, uint256 id) private {
         Table t_transaction = openTable(TransactionTable);
         Condition cond = t_transaction.newCondition();
-        cond.EQ("id", id);
+        cond.EQ("id", int256(id));
         Entries entries = t_transaction.select(key, cond);
         require(entries.size() > 0, "Transaction should exist.");
         require(entries.size() < 2, "Transaction should be unique.");
@@ -560,7 +698,7 @@ contract Supply0 {
         transaction.createTime = entry.getUInt("createTime");
         transaction.deadline = entry.getUInt("deadline");
         transaction.tMode = entry.getUInt("tMode");
-        transaction.oriReceiptId = entry.getString("oriReceiptId");
+        transaction.oriReceiptId = entry.getUInt("oriReceiptId");
         transaction.requestStatus = entry.getUInt("requestStatus");
         transaction.info = entry.getString("info");
         transaction.isFinance = entry.getUInt("isFinance");
@@ -574,7 +712,7 @@ contract Supply0 {
     ) private {
         Table t_transaction = openTable(TransactionTable);
         Condition cond = t_transaction.newCondition();
-        cond.EQ("id", id);
+        cond.EQ("id", int256(id));
         Entries entries = t_transaction.select(key, cond);
         require(entries.size() > 0, "Transaction should exist.");
         require(entries.size() < 2, "Transaction should be unique.");
@@ -607,18 +745,19 @@ contract Supply0 {
         entry.set("oriAmount", oriAmount);
         entry.set("createTime", createTime);
         entry.set("deadline", deadline);
-        entrt.set("receiptStatus", receiptStatus);
+        entry.set("receiptStatus", receiptStatus);
         entry.set("bankSignature", bankSignature);
         entry.set("coreCompanySignature", coreCompanySignature);
         entry.set("info", info);
         entry.set("isFinance", isFinance);
-        t_receipt.insert(toString(payeeAddr), entry);
+        string memory key = toString(payeeAddr);
+        t_receipt.insert(key, entry);
     }
 
     function findReceipt(string key, uint256 id) private {
         Table t_receipt = openTable(ReceiptTable);
         Condition cond = t_receipt.newCondition();
-        cond.EQ("id", id);
+        cond.EQ("id", int256(id));
         Entries entries = t_receipt.select(key, cond);
         require(entries.size() > 0, "Receipt should exist.");
         require(entries.size() < 2, "Receipt should be unique.");
@@ -645,13 +784,13 @@ contract Supply0 {
     ) private {
         Table t_receipt = openTable(ReceiptTable);
         Condition cond = t_receipt.newCondition();
-        cond.EQ("id", id);
+        cond.EQ("id", int256(id));
         Entries entries = t_receipt.select(key, cond);
         require(entries.size() > 0, "Receipt should exist.");
         require(entries.size() < 2, "Receipt should be unique.");
         Entry entry = entries.get(0);
         entry.set(field, value);
-        if (field == "paidAmount" && value >= entry.getUInt("oriAmount")) {
+        if (equal(field, "paidAmount") && value >= entry.getUInt("oriAmount")) {
             entry.set("receiptStatus", ReceiptStatus_settled);
         }
         t_receipt.update(key, entry, cond);
@@ -694,7 +833,7 @@ contract Supply0 {
         // Only certifier can register certifiers.
         // Administrator can register itself to be a certifier.
         findCertifier(senderAddr);
-        insertCompany(companyAddr, name, CompanyType_normal, 0, 0);
+        insertCompany(companyAddr, name, cType_normal, 0, 0);
     }
 
     /** 只有certifier能将normal公司认证为core公司 */
@@ -704,10 +843,10 @@ contract Supply0 {
         findCertifier(senderAddr);
         findCompany(companyAddr, false);
         require(
-            company.cType != CompanyType_core,
+            company.cType != cType_core,
             "This company is already a core company"
         );
-        updateCompanyUInt1(companyAddr, "cType", CompanyType_core);
+        updateCompanyUInt1(companyAddr, "cType", cType_core);
     }
 
     /***** credit的分发（授信）和 强制回收*****/
@@ -731,7 +870,7 @@ contract Supply0 {
         );
         // admin
         admin.outCredit += amount;
-        admin.outCreditPerBank[bankAddr] += amount;
+        outCreditPerBank[bankAddr] += amount;
     }
 
     /** admin强制要求bank返回credit */
@@ -757,7 +896,7 @@ contract Supply0 {
         );
         // admin
         admin.outCredit -= amount;
-        admin.outCreditPerBank[bankAddr] -= amount;
+        outCreditPerBank[bankAddr] -= amount;
     }
 
     /** bank将credit分发给core company*/
@@ -773,9 +912,9 @@ contract Supply0 {
         );
         uint256 bankCreditAmount = company.creditAmount;
 
-        findCompany(coreAddr);
+        findCompany(coreAddr, false);
         require(
-            company.cType == CompanyType_core,
+            company.cType == cType_core,
             "Must distribute credit to core company."
         );
 
@@ -799,9 +938,9 @@ contract Supply0 {
     ) public {
         findCompany(senderAddr, true);
         uint256 bankCreditAmount = company.creditAmount;
-        findCompany(coreAddr);
+        findCompany(coreAddr, false);
         require(
-            company.cType == CompanyType_core,
+            company.cType == cType_core,
             "Must force credit return from core company."
         );
         require(
@@ -836,9 +975,7 @@ contract Supply0 {
         require(amount > 0, "Amount <= 0 is not allowed.");
         require(
             tMode == 0 || tMode == 1,
-            "tMode should be 0 or 1: "
-            "0 stands for making new receipt, "
-            "1 stands for transfering origin receipt"
+            "tMode should be 0 or 1: 0 stands for making new receipt, 1 stands for transfering origin receipt"
         );
         // payer
         findCompany(payerAddr, isPayerBank);
@@ -850,7 +987,7 @@ contract Supply0 {
 
         // payee
         findCompany(payeeAddr, isPayeeBank);
-        if(isPayeeBank == true){
+        if (isPayeeBank == true) {
             require(
                 company.cashAmount >= amount,
                 "Bank doesn't have enough cash."
@@ -858,7 +995,7 @@ contract Supply0 {
         }
 
         if (tMode == TransactionMode_transfer) {
-            findReceipt(payerAddr, oriReceiptId);
+            findReceipt(toString(payerAddr), oriReceiptId);
             require(
                 receipt.oriAmount - receipt.paidAmount >= amount,
                 "Not enough unpaid money in origin receipt."
@@ -871,7 +1008,7 @@ contract Supply0 {
             oriReceiptId = 0;
         }
 
-        uint256 transactionId = uint256(keccak256(now));
+        uint256 transactionId = uint256(keccak256(abi.encodePacked(now)));
         insertTransaction(
             payeeAddr,
             payerAddr,
@@ -902,31 +1039,28 @@ contract Supply0 {
         bool isPayerBank,
         uint256 transactionId,
         uint256 respond,
-        string memory tType,
+        string memory tType
     ) private {
         require(
             respond == 0 || respond == 1,
-            "Respond is 0 or 1: "
-            "0 stands for refusing, "
-            "1 stands for accepting."
+            "Respond is 0 or 1: 0 stands for refusing, 1 stands for accepting."
         );
 
-        findTransaction(payeeAddr, transactionId);
+        findTransaction(toString(payeeAddr), transactionId);
         uint256 amount = transaction.amount;
         uint256 oriReceiptId = transaction.oriReceiptId;
 
         findCompany(payeeAddr, isPayeeBank);
-        if(isPayeeBank == true){
+        if (isPayeeBank == true) {
             require(
                 company.cashAmount >= amount,
                 "Bank doesn't have enough cash."
             );
         }
-        
 
         if (respond == 0) {
             updateTransactionUInt1(
-                payeeAddr,
+                toString(payeeAddr),
                 transactionId,
                 "requestStatus",
                 RequestStatus_refused
@@ -940,14 +1074,14 @@ contract Supply0 {
 
             if (transaction.tMode == TransactionMode_transfer) {
                 // split receipt
-                findReceipt(payerAddr, oriReceiptId);
+                findReceipt(toString(payerAddr), oriReceiptId);
                 require(
                     receipt.oriAmount - receipt.paidAmount >= amount,
                     "Not enough unpaid money in origin receipt."
                 );
                 updateReceiptUInt1(
-                    payerAddr,
-                    oriReceipt,
+                    toString(payerAddr),
+                    oriReceiptId,
                     "oriAmount",
                     receipt.oriAmount - amount
                 );
@@ -989,7 +1123,7 @@ contract Supply0 {
                 );
             }
 
-            uint256 receiptId = uint256(keccak256(now));
+            uint256 receiptId = uint256(keccak256(abi.encodePacked(now)));
             insertReceipt(
                 payeeAddr,
                 payerAddr,
@@ -1005,7 +1139,7 @@ contract Supply0 {
                 0
             );
             updateTransactionUInt1(
-                payeeAddr,
+                toString(payeeAddr),
                 transactionId,
                 "requestStatus",
                 RequestStatus_accepted
@@ -1016,7 +1150,6 @@ contract Supply0 {
             company.name,
             payerAddr,
             payerName,
-            transactionId,
             amount,
             respond,
             tType
@@ -1141,7 +1274,7 @@ contract Supply0 {
         address companyAddr,
         uint256 amount
     ) public {
-        findCompany(sender, true);
+        findCompany(senderAddr, true);
         findCompany(companyAddr, false);
         require(
             company.cashAmount >= amount,
@@ -1154,26 +1287,26 @@ contract Supply0 {
         );
     }
 
-    function _payReceipt(
+    function __payReceipt(
         address payerAddr,
         address payeeAddr,
         bool isPayeeBank,
-        string receiptId,
+        uint256 receiptId,
         uint256 amount
     ) private {
         findCompany(payerAddr, false);
         uint256 payerCashAmount = company.cashAmount;
         uint256 payerCreditAmount = company.creditAmount;
         require(
-            payer.cashAmount >= amount,
+            company.cashAmount >= amount,
             "Payer doesn't have enough cash to pay."
         );
         findCompany(payeeAddr, isPayeeBank);
         require(
-            company.credit >= amount,
+            company.creditAmount >= amount,
             "Payee doesn't have enough credit to return."
         );
-        findReceipt(payeeAddr, receiptId);
+        findReceipt(toString(payeeAddr), receiptId);
         require(receipt.payeeAddr == payeeAddr, "Wrong payee.");
 
         updateCompanyUInt2(
@@ -1186,12 +1319,12 @@ contract Supply0 {
         updateCompanyUInt2(
             payeeAddr,
             "cashAmount",
-            payee.cashAmount + amount,
+            company.cashAmount + amount,
             "creditAmount",
-            payee.creditAmount - amount
+            company.creditAmount - amount
         );
         updateReceiptUInt1(
-            payeeAddr,
+            toString(payeeAddr),
             receiptId,
             "paidAmount",
             receipt.paidAmount + amount
@@ -1199,12 +1332,12 @@ contract Supply0 {
     }
 
     function payReceipt(
-        address payerAddr,
+        address senderAddr,
         address payeeAddr,
         uint256 receiptId,
         uint256 amount,
         bool isFinance
     ) public {
-        _payReceipt(senderAddr, payeeAddr, isFinance, receiptId, amount);
+        __payReceipt(senderAddr, payeeAddr, isFinance, receiptId, amount);
     }
 }
