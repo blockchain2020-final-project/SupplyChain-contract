@@ -128,6 +128,7 @@ contract Supply0 {
         string payeeName,
         address payerAddr, // 付款人
         string payerName,
+        uint256 id,
         uint256 amount,
         string rType
     );
@@ -136,6 +137,7 @@ contract Supply0 {
         string payeeName,
         address payerAddr, // 付款人
         string payerName,
+        uint256 id,
         uint256 amount,
         uint256 respond,
         string rType
@@ -479,12 +481,12 @@ contract Supply0 {
     // }
 
     /** 查询管理员分发的credit总数 */
-    function queryAdminOutCredit() public view returns (uint256) {
+    function getAdminOutCredit() public view returns (uint256) {
         return admin.outCredit;
     }
 
     /** 查询管理员分给某一银行的credit总数 */
-    function queryAdminOutCredit2Bank(address bankAddr)
+    function getAdminOutCredit2Bank(address bankAddr)
         public
         view
         returns (uint256)
@@ -560,6 +562,12 @@ contract Supply0 {
         emit NewRegistration(addr, name, rType);
     }
 
+    function getCTypeString(uint256 cType) private returns (string) {
+        if (cType == cType_bank) return "Bank";
+        if (cType == cType_core) return "Company(Core)";
+        if (cType == cType_normal) return "Company(Normal)";
+    }
+
     function updateCompanyUInt1(
         address addr,
         string field,
@@ -582,7 +590,7 @@ contract Supply0 {
             emit NewRegistration(
                 addr,
                 entry.getString("name"),
-                "Company(core)"
+                "Company(Core)"
             );
         } else {
             emit UpdateCompany(
@@ -590,7 +598,7 @@ contract Supply0 {
                 entry.getString("name"),
                 field,
                 value,
-                "Company"
+                getCTypeString(entry.getUInt("cType"))
             );
         }
     }
@@ -962,7 +970,7 @@ contract Supply0 {
         updateCompanyUInt1(
             coreAddr,
             "creditAmount",
-            company.creditAmount + amount
+            company.creditAmount - amount
         );
     }
 
@@ -1033,6 +1041,7 @@ contract Supply0 {
             company.name,
             payerAddr,
             payerName,
+            transactionId,
             amount,
             tType
         );
@@ -1156,6 +1165,7 @@ contract Supply0 {
             company.name,
             payerAddr,
             payerName,
+            transactionId,
             amount,
             respond,
             tType
