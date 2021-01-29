@@ -1,8 +1,20 @@
-# SupplyChain
+# SupplyChain链端
 
-A blockchain application based on FISCO-BCOS.
+该项目是我们小组实现的供应链系统的链端智能合约。
 
-interface:
+### 主要功能
+- 角色认证
+- 管理员宏观调控系统总借贷
+- 银行授信核心企业
+- 交易
+- 融资（贷款）
+- 还款：交易、融资
+
+### 辅助功能
+- 数字签名
+- 电子钱包
+
+### API:
 
 ```solidity
     // get all
@@ -45,26 +57,26 @@ interface:
     function getAdminOutCredit2Bank(address bankAddr)
 
     // 注册
-    function registerBank(
-    function registerCertifier(
-    function registerCompany(
+    function registerBank
+    function registerCertifier
+    function registerCompany
     function registerCoreCompany(address senderAddr, address companyAddr)
 
     // admin将credit分发给bank
-    function creditDistributionToBank(
+    function creditDistributionToBank
     // admin强制要求bank返回credit
-    function creditReturnFromBank(
+    function creditReturnFromBank
     // bank将credit分发给core company
-    function creditDistributionToCore(
+    function creditDistributionToCore
     // bank强制要求core company返回credit
-    function creditReturnFromCore(
+    function creditReturnFromCore
     
     // 交易 和 贷款 请求、响应
-    function transactionRequestWithNewReceipt(
-    function transactionRequestWithOldReceipt(
-    function financeRequest(
-    function transactionRespond(
-    function financeRespond(
+    function transactionRequestWithNewReceipt
+    function transactionRequestWithOldReceipt
+    function financeRequest
+    function transactionRespond
+    function financeRespond
 
     // 支付
     function depositCash( // 存钱
