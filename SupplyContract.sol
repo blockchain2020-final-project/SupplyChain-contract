@@ -1228,6 +1228,9 @@ contract Supply0 {
         }
 
         int32 transactionId = int32(keccak256(abi.encodePacked(now)));
+        if (transactionId < 0) {
+            transactionId = -transactionId;
+        }
         insertTransaction(
             payeeAddr,
             payerAddr,
@@ -1350,6 +1353,9 @@ contract Supply0 {
             }
 
             int32 receiptId = int32(keccak256(abi.encodePacked(now)));
+            if (receiptId < 0) {
+                receiptId = -receiptId;
+            }
             insertReceipt(
                 payeeAddr,
                 newReceiptPayerAddr,
